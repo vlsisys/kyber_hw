@@ -8,10 +8,34 @@
 # and related or neighboring rights to the source code in this file.
 # http://creativecommons.org/publicdomain/zero/1.0/
 
+import os, inspect
+dict_vec = dict()
+
+
+def gen_vec(funcName, *vars):
+    current_frame   = inspect.currentframe()
+    caller_frame    = inspect.getouterframes(current_frame)[1]
+    local_vars      = caller_frame.frame.f_locals
+    for var in vars:
+        for name, value in local_vars.items():
+            if value is var:
+                print(name, var)
+                if name in dict_vec.keys():
+                    if dict_vec[name] < value:
+                        dict_vec[name] = len(bin(value).replace('0b',''))
+                else:
+                    dict_vec[name] = len(bin(value).replace('0b',''))
+                os.system(f'mkdir -p ./vec/{funcName}')
+                with open(f'./vec/{funcName}/{name}.vec', 'a') as fh:
+                    fh.write(bin(var).replace('0b','').rjust(128,'0')+'\n')
+
 def ROL64(a, n):
-    return ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
+    out =  ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
+    #gen_vec('ROL64', a, n, out)
+    return out
 
 def KeccakF1600onLanes(lanes):
+#    print(lanes)
     R = 1
     for round in range(24):
         # θ
@@ -37,10 +61,13 @@ def KeccakF1600onLanes(lanes):
     return lanes
 
 def load64(b):
-    return sum((b[i] << (8*i)) for i in range(8))
-
+    out = sum((b[i] << (8*i)) for i in range(8))
+    print(b)
+    return out
 def store64(a):
-    return list((a >> (8*i)) % 256 for i in range(8))
+    out = list((a >> (8*i)) % 256 for i in range(8))
+    print(a)
+    return out
 
 def KeccakF1600(state):
     lanes = [[load64(state[8*(x+5*y):8*(x+5*y)+8]) for y in range(5)] for x in range(5)]
