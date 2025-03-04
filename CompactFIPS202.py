@@ -62,7 +62,7 @@ def KeccakF1600onLanes(lanes):
 
 def load64(b):
     out = sum((b[i] << (8*i)) for i in range(8))
-    print(b)
+    print(b)    # 64bit (8 bytes)
     return out
 def store64(a):
     out = list((a >> (8*i)) % 256 for i in range(8))
