@@ -8,7 +8,7 @@
 # and related or neighboring rights to the source code in this file.
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-import os, inspect
+import os, inspect, bitstring
 dict_vec = dict()
 
 
@@ -19,7 +19,7 @@ def gen_vec(funcName, *vars):
     for var in vars:
         for name, value in local_vars.items():
             if value is var:
-                print(name, var)
+                print(f'{name:10} {var}')
                 if name in dict_vec.keys():
                     if dict_vec[name] < value:
                         dict_vec[name] = len(bin(value).replace('0b',''))
@@ -35,7 +35,7 @@ def ROL64(a, n):
     return out
 
 def KeccakF1600onLanes(lanes):
-#    print(lanes)
+    print(lanes)
     R = 1
     for round in range(24):
         # θ
@@ -62,11 +62,14 @@ def KeccakF1600onLanes(lanes):
 
 def load64(b):
     out = sum((b[i] << (8*i)) for i in range(8))
-    print(b)    # 64bit (8 bytes)
+    #i_data = int.from_bytes(b)
+    #gen_vec('load64', i_data, out)
     return out
+
 def store64(a):
     out = list((a >> (8*i)) % 256 for i in range(8))
-    print(a)
+    o_out = int(''.join(hex(x).replace('0x', '').rjust(2, '0') for x in out), 16)
+    #gen_vec('store64', a, o_out)
     return out
 
 def KeccakF1600(state):
