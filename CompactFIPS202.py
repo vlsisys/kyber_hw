@@ -42,12 +42,14 @@ def KeccakF1600onLanes(lanes):
         C = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in range(5)]
         D = [C[(x+4)%5] ^ ROL64(C[(x+1)%5], 1) for x in range(5)]
         lanes = [[lanes[x][y]^D[x] for y in range(5)] for x in range(5)]
+        #print(f'{C}, {D}')
         # ρ and π
         (x, y) = (1, 0)
         current = lanes[x][y]
         for t in range(24):
             (x, y) = (y, (2*x+3*y)%5)
             (current, lanes[x][y]) = (lanes[x][y], ROL64(current, (t+1)*(t+2)//2))
+            #print(t, ':', x, y, ((t+1)*(t+2)//2)%64)
         # χ
         for y in range(5):
             T = [lanes[x][y] for x in range(5)]
@@ -56,6 +58,7 @@ def KeccakF1600onLanes(lanes):
         # ι
         for j in range(7):
             R = ((R << 1) ^ ((R >> 7)*0x71)) % 256
+            #print(f'R:{R}, R&2:{R&2}')
             if (R & 2):
                 lanes[0][0] = lanes[0][0] ^ (1 << ((1<<j)-1))
     return lanes
