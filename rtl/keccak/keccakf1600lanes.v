@@ -9,7 +9,7 @@ module keccakf1600lanes
 	parameter	BW_DATA			= 64*5*5		//1600
 )
 (	
-	output 		[BW_DATA-1:0]	o_lanes,
+	output reg	[BW_DATA-1:0]	o_lanes,
 	output reg					o_valid,
 	input		[BW_DATA-1:0]	i_lanes,
 	input						i_valid,
@@ -32,7 +32,7 @@ module keccakf1600lanes
 		if(!i_rstn) begin
 			round	<= 0;
 		end else begin
-			if (round < 24 && (c_state == S_COMP)) begin
+			if (round < 23 && (c_state == S_COMP)) begin
 				round	<= round + 1;
 			end else begin
 				round	<= 0;
@@ -76,10 +76,10 @@ module keccakf1600lanes
 		if(!i_rstn) begin
 			r_init	<= 1;
 		end else begin
-			if (c_state == S_IDLE) begin
-				r_init	<= 1;
-			end else begin
+			if (c_state == S_COMP) begin
 				r_init	<= r[6];
+			end else begin
+				r_init	<= 1;
 			end
 		end
 	end
@@ -87,20 +87,14 @@ module keccakf1600lanes
 // --------------------------------------------------
 //	Input Rearrange
 // --------------------------------------------------
-	reg			[63:0]			lanes[0:4][0:4];
+	wire		[63:0]			lanes[0:4][0:4];
 	genvar						x, y;
 
 	generate
 		for (x=0; x<5; x=x+1) begin
 			for (y=0; y<5; y=y+1) begin
-				//assign	lanes[x][y]	= (c_state == S_IDLE) ? i_lanes[BW_DATA-1-(5*x+y)*64-:63] : lanes_iota[x][y];
-				always @(posedge i_clk or negedge i_rstn) begin
-					if(!i_rstn) begin
-						lanes[x][y]	<= 0;
-					end else begin
-						lanes[x][y]	<= (c_state == S_IDLE) ? i_lanes[BW_DATA-1-(5*x+y)*64-:64] : lanes_iota[x][y];
-					end
-				end
+				assign	lanes[x][y]	=	(c_state == S_IDLE) ? 0 :
+										(c_state == S_COMP && round == 0) ? i_lanes[BW_DATA-1-((5*x+y)*64)-:64] : o_lanes[BW_DATA-1-((5*x+y)*64)-:64];
 			end
 		end
 	endgenerate
@@ -212,7 +206,7 @@ module keccakf1600lanes
 		for (x=0; x<7; x=x+1) begin
 			if (x==0) begin
 				assign	r[x]			= ((r_init << 1) ^ ((r_init >> 7)*'h71)) % 256;
-				assign	lanes_iota_00[x]	= (r[x] & 2) ? lanes_chi[0][0] ^ (1 << ((1<<x)-1)): lanes_chi[0][0];
+				assign	lanes_iota_00[x]	= (r[x] & 2) ? lanes_chi[0][0]    ^ (1 << ((1<<x)-1)): lanes_chi[0][0];
 			end else begin
 				assign	r[x]			= ((r[x-1] << 1) ^ ((r[x-1] >> 7)*'h71)) % 256;
 				assign	lanes_iota_00[x]	= (r[x] & 2) ? lanes_iota_00[x-1] ^ (1 << ((1<<x)-1)): lanes_iota_00[x-1];
@@ -232,12 +226,21 @@ module keccakf1600lanes
 		end
 	endgenerate
 
+	wire		[BW_DATA-1:0]	lanes_dff_pre;
 	generate
 		for (x=0; x<5; x=x+1) begin
 			for (y=0; y<5; y=y+1) begin
-				assign	o_lanes[BW_DATA-1-(5*x+y)*64-:63] = lanes_iota[x][y];
+				assign	lanes_dff_pre[BW_DATA-1-((5*x+y)*64)-:64] = lanes_iota[x][y];
 			end
 		end
 	endgenerate
+
+	always @(posedge i_clk or negedge i_rstn) begin
+		if(!i_rstn) begin
+			o_lanes	<= 0;
+		end else begin
+			o_lanes	<= lanes_dff_pre;
+		end
+	end
 
 endmodule

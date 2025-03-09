@@ -1,0 +1,2 @@
+VCD info: dumpfile ./vcd/keccakf1600lanes.vcd opened for output.
+keccakf1600lanes_tb.v:122: $finish called at 1350000 (1ps)

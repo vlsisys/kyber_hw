@@ -1,6 +1,0 @@
-WARNING: store64_tb.v:44: Excess binary digits (64 of '00000000000000000000000000000000000000000000000000000000000000001000010111010110001010010111010001001001011011101000011111000001') while reading 64-bit words.
-WARNING: store64_tb.v:44: $readmemb(./vec/store64/o_data.vec): Too many words in the file for the requested range [0:99].
-WARNING: store64_tb.v:45: Excess binary digits (64 of '00000000000000000000000000000000000000000000000000000000000000001100000110000111011011100100100101110100001010011101011010000101') while reading 64-bit words.
-WARNING: store64_tb.v:45: $readmemb(./vec/store64/i_data.vec): Too many words in the file for the requested range [0:99].
-VCD info: dumpfile ./vcd/store64.vcd opened for output.
-store64_tb.v:91: $finish called at 1010000 (1ps)
