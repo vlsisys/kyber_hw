@@ -8,7 +8,7 @@
 # and related or neighboring rights to the source code in this file.
 # http://creativecommons.org/publicdomain/zero/1.0/
 
-import os, inspect, bitstring
+import os, inspect, bitstring, itertools
 dict_vec = dict()
 
 
@@ -27,7 +27,7 @@ def gen_vec(funcName, *vars):
                     dict_vec[name] = len(bin(value).replace('0b',''))
                 os.system(f'mkdir -p ./vec/{funcName}')
                 with open(f'./vec/{funcName}/{name}.vec', 'a') as fh:
-                    fh.write(bin(var).replace('0b','').rjust(128,'0')+'\n')
+                    fh.write(bin(var).replace('0b','').rjust(1600,'0')+'\n')
 
 def ROL64(a, n):
     out =  ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
@@ -35,14 +35,18 @@ def ROL64(a, n):
     return out
 
 def KeccakF1600onLanes(lanes):
-    print(lanes)
+    #print(lanes)
+    i_lanes = list(itertools.chain(*lanes))
+    i_lanes = int(''.join(hex(x).replace('0x', '').rjust(16, '0') for x in i_lanes), 16)
+    #print(i_lanes)
     R = 1
     for round in range(24):
         # θ
         C = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in range(5)]
         D = [C[(x+4)%5] ^ ROL64(C[(x+1)%5], 1) for x in range(5)]
         lanes = [[lanes[x][y]^D[x] for y in range(5)] for x in range(5)]
-        #print(f'{C}, {D}')
+        #print(f'[theta] round: {round}, lanes:{lanes}')
+
         # ρ and π
         (x, y) = (1, 0)
         current = lanes[x][y]
@@ -50,17 +54,22 @@ def KeccakF1600onLanes(lanes):
             (x, y) = (y, (2*x+3*y)%5)
             (current, lanes[x][y]) = (lanes[x][y], ROL64(current, (t+1)*(t+2)//2))
             #print(t, ':', x, y, ((t+1)*(t+2)//2)%64)
+
         # χ
         for y in range(5):
             T = [lanes[x][y] for x in range(5)]
             for x in range(5):
                 lanes[x][y] = T[x] ^((~T[(x+1)%5]) & T[(x+2)%5])
+
         # ι
         for j in range(7):
             R = ((R << 1) ^ ((R >> 7)*0x71)) % 256
-            #print(f'R:{R}, R&2:{R&2}')
             if (R & 2):
                 lanes[0][0] = lanes[0][0] ^ (1 << ((1<<j)-1))
+
+    o_lanes = list(itertools.chain(*lanes))
+    o_lanes = int(''.join(hex(x).replace('0x', '').rjust(16, '0') for x in o_lanes), 16)
+    #gen_vec('KeccakF1600onLanes', i_lanes, o_lanes)
     return lanes
 
 def load64(b):
@@ -76,7 +85,9 @@ def store64(a):
     return out
 
 def KeccakF1600(state):
+    #print(state.hex())
     lanes = [[load64(state[8*(x+5*y):8*(x+5*y)+8]) for y in range(5)] for x in range(5)]
+    print(lanes)
     lanes = KeccakF1600onLanes(lanes)
     state = bytearray(200)
     for x in range(5):
