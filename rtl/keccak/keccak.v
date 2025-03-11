@@ -44,8 +44,6 @@ module keccak
 		end else begin
 			block_size		<= ( (i_ibyte_len - input_offset) > rate_in_byte ) ? rate_in_byte : i_ibyte_len - input_offset;
 			input_offset	<= input_offset + block_size;
-			
-			
 		end
 	end
 	
