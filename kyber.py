@@ -1,4 +1,5 @@
 import os
+from CompactFIPS202 import *
 from hashlib import sha3_256, sha3_512, shake_128, shake_256
 from polynomials import *
 from modules import *
@@ -99,7 +100,9 @@ class Kyber:
         self._xof_length        = length
         self._xof_input_bytes   = input_bytes
 
-        return shake_128(input_bytes).digest(length)
+        #print(f'SHAKE128:{len(input_bytes)}, {length}')
+        #return shake_128(input_bytes).digest(length)
+        return SHAKE128(input_bytes, length)
     
     # Pseudorandom Function (PRF): Hash the s + b values (bytes) using the shake_256 algorithm and product the output with specified "length"
     @staticmethod  
@@ -110,15 +113,20 @@ class Kyber:
         input_bytes = s + b
         if len(input_bytes) != 33:
             raise ValueError(f"Input bytes should be one 32 byte array and one single byte.")
-        return shake_256(input_bytes).digest(length)
         
+        #print(f'SHAKE256:{len(input_bytes)}, {length}')
+        #return shake_256(input_bytes).digest(length)
+        return SHAKE256(input_bytes, length)
+    
     # Hash the input_bytes by sha3_256 algorithm
     @staticmethod
     def _h(input_bytes): 
         """
         H: B* -> B^32
         """
-        return sha3_256(input_bytes).digest() # 32 bytes long
+        #print(f'SHA3_256:{len(input_bytes)}')
+        #return sha3_256(input_bytes).digest() # 32 bytes long
+        return SHA3_256(input_bytes)
     
     # Hash the input_bytes by sha3_512 algorithm
     @staticmethod  
@@ -126,7 +134,9 @@ class Kyber:
         """
         G: B* -> B^32 x B^32
         """
-        output = sha3_512(input_bytes).digest() # 64 bytes long
+        #output = sha3_512(input_bytes).digest() # 64 bytes long
+        output = SHA3_512(input_bytes)
+        #print(f'SHA3_512:{len(input_bytes)}')
         return output[:32], output[32:]
     
     # Key Derivation Function (KDF)
@@ -135,7 +145,9 @@ class Kyber:
         """
         KDF: B^* -> B^*
         """
-        return shake_256(input_bytes).digest(length)
+        #print(f'SHAKE256:{len(input_bytes)}, {length}')
+        #return shake_256(input_bytes).digest(length)
+        return SHAKE256(input_bytes, length)
     
     # Generate an error vector that consists of "self.k" polynomials 
     # sigma: A byte sequence used as an input to a pseudo-random function (PRF).

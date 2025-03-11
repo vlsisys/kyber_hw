@@ -85,14 +85,15 @@ def store64(a):
     return out
 
 def KeccakF1600(state):
-    #print(state.hex())
+    i_state = int.from_bytes(state)
     lanes = [[load64(state[8*(x+5*y):8*(x+5*y)+8]) for y in range(5)] for x in range(5)]
-    print(lanes)
     lanes = KeccakF1600onLanes(lanes)
     state = bytearray(200)
     for x in range(5):
         for y in range(5):
             state[8*(x+5*y):8*(x+5*y)+8] = store64(lanes[x][y])
+    o_state = int.from_bytes(state)
+    #gen_vec('keccakf1600', i_state, o_state)
     return state
 
 def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
@@ -106,6 +107,7 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     # === Absorb all the input blocks ===
     while(inputOffset < len(inputBytes)):
         blockSize = min(len(inputBytes)-inputOffset, rateInBytes)
+        print(f'{blockSize}')
         for i in range(blockSize):
             state[i] = state[i] ^ inputBytes[i+inputOffset]
         inputOffset = inputOffset + blockSize
