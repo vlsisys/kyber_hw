@@ -1,2 +1,4 @@
+ERROR: keccakf1600_tb.v:58: $readmemb: Unable to open ../../vec/keccakf1600/o_state.vec for reading.
+ERROR: keccakf1600_tb.v:59: $readmemb: Unable to open ../../vec/keccakf1600/i_state.vec for reading.
 VCD info: dumpfile ./vcd/keccakf1600.vcd opened for output.
 keccakf1600_tb.v:123: $finish called at 1350000 (1ps)

@@ -97,6 +97,17 @@ def KeccakF1600(state):
     return state
 
 def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
+    print('==============================')
+    if rate == 1344:
+        print(f'SHAKE128: IOBytes={len(inputBytes)},{outputByteLen}')
+    if rate == 1088 and delimitedSuffix == 0x1F:
+        print(f'SHAKE256: IOBytes={len(inputBytes)},{outputByteLen}')
+    if rate == 1088 and delimitedSuffix == 0x06:
+        print(f'SHA3_256: IOBytes={len(inputBytes)},{outputByteLen}')
+    if rate == 576:
+        print(f'SHA3_512: IOBytes={len(inputBytes)},{outputByteLen}')
+    print('==============================')
+
     outputBytes = bytearray()
     state = bytearray([0 for i in range(200)])
     rateInBytes = rate//8
@@ -104,30 +115,46 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     if (((rate + capacity) != 1600) or ((rate % 8) != 0)):
         return
     inputOffset = 0
+    k = 0
     # === Absorb all the input blocks ===
     while(inputOffset < len(inputBytes)):
+        # HW-Fetch
         blockSize = min(len(inputBytes)-inputOffset, rateInBytes)
-        print(f'{blockSize}')
+
+        # HW-ABSB
+        print(f'ABSB  [{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
+        k = k+1
         for i in range(blockSize):
             state[i] = state[i] ^ inputBytes[i+inputOffset]
         inputOffset = inputOffset + blockSize
+        # HW-ABSB-KECCAK
         if (blockSize == rateInBytes):
+            print(f'ABSB_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
             state = KeccakF1600(state)
             blockSize = 0
     # === Do the padding and switch to the squeezing phase ===
     state[blockSize] = state[blockSize] ^ delimitedSuffix
-    if (((delimitedSuffix & 0x80) != 0) and (blockSize == (rateInBytes-1))):
-        state = KeccakF1600(state)
+    #k = 0
+    #if (((delimitedSuffix & 0x80) != 0) and (blockSize == (rateInBytes-1))):
+    #    state = KeccakF1600(state)
+    #    print(f'Padding[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
+    #    k = k+1
+
     state[rateInBytes-1] = state[rateInBytes-1] ^ 0x80
     state = KeccakF1600(state)
     # === Squeeze out all the output blocks ===
+    k = 0
     while(outputByteLen > 0):
         blockSize = min(outputByteLen, rateInBytes)
         outputBytes = outputBytes + state[0:blockSize]
         outputByteLen = outputByteLen - blockSize
+        print(f'SQUZ  [{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
+        k = k+1
         if (outputByteLen > 0):
+            print(f'SQUZ_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
             state = KeccakF1600(state)
     return outputBytes
+
 
 def SHAKE128(inputBytes, outputByteLen):
     return Keccak(1344, 256, inputBytes, 0x1F, outputByteLen)
