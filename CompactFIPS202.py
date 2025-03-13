@@ -97,6 +97,7 @@ def KeccakF1600(state):
     return state
 
 def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
+    i_obyte_len = outputByteLen
     print('==============================')
     if rate == 1344:
         print(f'SHAKE128: IOBytes={len(inputBytes)},{outputByteLen}')
@@ -153,6 +154,10 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
         if (outputByteLen > 0):
             print(f'SQUZ_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
             state = KeccakF1600(state)
+    i_ibytes = int.from_bytes(inputBytes)
+    o_obytes = int.from_bytes(outputBytes)
+    #print(i_ibytes, i_obyte_len, o_bytes)
+    gen_vec('keccak', i_ibytes, i_obyte_len, o_obytes)
     return outputBytes
 
 
