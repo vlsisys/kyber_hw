@@ -27,7 +27,7 @@ def gen_vec(funcName, *vars):
                     dict_vec[name] = len(bin(value).replace('0b',''))
                 os.system(f'mkdir -p ./vec/{funcName}')
                 with open(f'./vec/{funcName}/{name}.vec', 'a') as fh:
-                    fh.write(bin(var).replace('0b','').rjust(1600,'0')+'\n')
+                    fh.write(bin(var).replace('0b','').rjust(1184*8,'0')+'\n')
 
 def ROL64(a, n):
     out =  ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
@@ -97,16 +97,21 @@ def KeccakF1600(state):
     return state
 
 def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
-    i_obyte_len = outputByteLen
+    i_ibyte_len = int(len(inputBytes))
+    i_obyte_len = int(outputByteLen)
     print('==============================')
     if rate == 1344:
         print(f'SHAKE128: IOBytes={len(inputBytes)},{outputByteLen}')
+        i_mode = 0
     if rate == 1088 and delimitedSuffix == 0x1F:
         print(f'SHAKE256: IOBytes={len(inputBytes)},{outputByteLen}')
+        i_mode = 1
     if rate == 1088 and delimitedSuffix == 0x06:
         print(f'SHA3_256: IOBytes={len(inputBytes)},{outputByteLen}')
+        i_mode = 2
     if rate == 576:
         print(f'SHA3_512: IOBytes={len(inputBytes)},{outputByteLen}')
+        i_mode = 3
     print('==============================')
 
     outputBytes = bytearray()
@@ -154,10 +159,10 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
         if (outputByteLen > 0):
             print(f'SQUZ_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
             state = KeccakF1600(state)
-    i_ibytes = int.from_bytes(inputBytes)
-    o_obytes = int.from_bytes(outputBytes)
+    i_ibytes = int(int.from_bytes(inputBytes))
+    o_obytes = int(int.from_bytes(outputBytes))
     #print(i_ibytes, i_obyte_len, o_bytes)
-    gen_vec('keccak', i_ibytes, i_obyte_len, o_obytes)
+    gen_vec('keccak', i_mode, i_ibytes, i_ibyte_len, i_obyte_len, o_obytes)
     return outputBytes
 
 
