@@ -27,7 +27,7 @@ def gen_vec(funcName, *vars):
                     dict_vec[name] = len(bin(value).replace('0b',''))
                 os.system(f'mkdir -p ./vec/{funcName}')
                 with open(f'./vec/{funcName}/{name}.vec', 'a') as fh:
-                    fh.write(bin(var).replace('0b','').rjust(1184*8,'0')+'\n')
+                    fh.write(hex(var).replace('0x','').rjust(1184,'0')+'\n')
 
 def ROL64(a, n):
     out =  ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
