@@ -51,12 +51,12 @@ module keccakf1600_tb;
 // --------------------------------------------------
 //	Test Vector Configuration
 // --------------------------------------------------
-	reg			[`BW_DATA-1:0]	vo_state[0:`NVEC-1];
-	reg			[`BW_DATA-1:0]	vi_state[0:`NVEC-1];
+	reg			[1184*8-1:0]	vo_state[0:`NVEC-1];
+	reg			[1184*8-1:0]	vi_state[0:`NVEC-1];
 
 	initial begin
-		$readmemb("../../vec/keccakf1600/o_state.vec",		vo_state);
-		$readmemb("../../vec/keccakf1600/i_state.vec",		vi_state);
+		$readmemh("../../vec/keccakf1600/o_state.vec",		vo_state);
+		$readmemh("../../vec/keccakf1600/i_state.vec",		vi_state);
 	end
 
 // --------------------------------------------------

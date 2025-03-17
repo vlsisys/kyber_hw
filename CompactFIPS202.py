@@ -132,6 +132,7 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
         k = k+1
         for i in range(blockSize):
             state[i] = state[i] ^ inputBytes[i+inputOffset]
+        
         inputOffset = inputOffset + blockSize
         # HW-ABSB-KECCAK
         if (blockSize == rateInBytes):
@@ -145,10 +146,11 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     #    state = KeccakF1600(state)
     #    print(f'Padding[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
     #    k = k+1
-
     state[rateInBytes-1] = state[rateInBytes-1] ^ 0x80
+    print(f'state:{state.hex()}')
     state = KeccakF1600(state)
     # === Squeeze out all the output blocks ===
+    print(f'state:{state.hex()}')
     k = 0
     while(outputByteLen > 0):
         blockSize = min(outputByteLen, rateInBytes)

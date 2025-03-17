@@ -58,18 +58,20 @@ module keccakf1600
 		.i_rstn				(i_rstn				)
 	);
 
+
 	generate
 		for (x=0; x<5; x=x+1) begin
 			for (y=0; y<5; y=y+1) begin
 				assign	state_post[x][y]					= lanes_o[BW_DATA-1-((5*x+y)*64)-:64]; 
-				assign	o_state[BW_DATA-1-((x+5*y)*64)-:64]	= {	state_post[x][y][63-7*8-:8],
+				assign	o_state[BW_DATA-1-((x+5*y)*64)-:64]	= o_valid ?	
+															{	state_post[x][y][63-7*8-:8],
 																state_post[x][y][63-6*8-:8],
 																state_post[x][y][63-5*8-:8],
 																state_post[x][y][63-4*8-:8],
 																state_post[x][y][63-3*8-:8],
 																state_post[x][y][63-2*8-:8],
 																state_post[x][y][63-1*8-:8],
-																state_post[x][y][63-0*8-:8]};
+																state_post[x][y][63-0*8-:8]} : 0;
 			end
 		end
 	endgenerate

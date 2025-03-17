@@ -236,7 +236,7 @@ module keccakf1600lanes
 	endgenerate
 
 	always @(posedge i_clk or negedge i_rstn) begin
-		if(!i_rstn) begin
+		if (!i_rstn) begin
 			o_lanes	<= 0;
 		end else begin
 			o_lanes	<= lanes_dff_pre;

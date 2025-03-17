@@ -20,6 +20,7 @@
 // --------------------------------------------------
 //	Maximum InputBytes		: 1184 B
 //	Maximum InputBlock		:  168 B
+//	Maximum OutputBytes		:  784 B
 //	Cycles for InputBlock	:  168 B / 64 b = 21 Cycles
 
 // --------------------------------------------------
@@ -59,7 +60,9 @@ module keccak_tb;
 		end
 	end
 
-	always @(*) i_ibytes	= vi_ibytes[i][vi_ibyte_len[i]*8-1-(64*cnt_ibytes)-:64];
+	always @(*) begin
+		i_ibytes	= vi_ibytes[i][vi_ibyte_len[i]*8-1-(64*cnt_ibytes)-:64];
+	end
 
 	keccak
 	#(
@@ -139,11 +142,11 @@ module keccak_tb;
 			i_ibyte_len		= vi_ibyte_len[i];
 			i_obyte_len		= vi_obyte_len[i];
 			i_ibytes_valid	= 1;
-			while (i_ibytes_valid && o_ibytes_ready) begin
-				@ (posedge i_clk) begin
-					i_ibytes		= vi_ibytes[i][vi_ibyte_len[i]*8-1-(64*cnt_ibytes)-:64];
-				end
-			end
+			//while (i_ibytes_valid && o_ibytes_ready) begin
+			//	@ (posedge i_clk) begin
+			//		i_ibytes		= vi_ibytes[i][vi_ibyte_len[i]*8-1-(64*cnt_ibytes)-:64];
+			//	end
+			//end
 		end
 	endtask
 
