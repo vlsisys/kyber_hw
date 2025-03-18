@@ -97,8 +97,8 @@ def KeccakF1600(state):
     return state
 
 def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
-    i_ibyte_len = int(len(inputBytes))
-    i_obyte_len = int(outputByteLen)
+    i_ibytes_len = int(len(inputBytes))
+    i_obytes_len = int(outputByteLen)
     print('==============================')
     if rate == 1344:
         print(f'SHAKE128: IOBytes={len(inputBytes)},{outputByteLen}')
@@ -147,10 +147,10 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     #    print(f'Padding[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
     #    k = k+1
     state[rateInBytes-1] = state[rateInBytes-1] ^ 0x80
-    print(f'state:{state.hex()}')
+    #print(f'state:{state.hex()}')
     state = KeccakF1600(state)
     # === Squeeze out all the output blocks ===
-    print(f'state:{state.hex()}')
+    #print(f'state:{state.hex()}')
     k = 0
     while(outputByteLen > 0):
         blockSize = min(outputByteLen, rateInBytes)
@@ -164,7 +164,7 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     i_ibytes = int(int.from_bytes(inputBytes))
     o_obytes = int(int.from_bytes(outputBytes))
     #print(i_ibytes, i_obyte_len, o_bytes)
-    gen_vec('keccak', i_mode, i_ibytes, i_ibyte_len, i_obyte_len, o_obytes)
+    gen_vec('keccak', i_mode, i_ibytes, i_ibytes_len, i_obytes_len, o_obytes)
     return outputBytes
 
 

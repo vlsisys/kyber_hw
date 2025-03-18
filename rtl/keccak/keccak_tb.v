@@ -10,9 +10,7 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define BW_DATA		64*5*5	// Bitwidth of ~~
-`define BW_CTRL		2		// Bitwidth of ~~
-`define NVEC		1		// # of Test Vector
+`define NVEC		2		// # of Test Vector
 `define	DEBUG
 
 // --------------------------------------------------
@@ -32,23 +30,23 @@ module keccak_tb;
 // --------------------------------------------------
 //	DUT Signals & Instantiate
 // --------------------------------------------------
-	wire	[63:0]			o_obytes;
+	wire	[ `BW_DATA-1:0]	o_obytes;
 	wire					o_obytes_valid;
 	wire					o_ibytes_ready;
-	reg		[`BW_CTRL-1:0]	i_mode;
-	reg		[63:0]			i_ibytes;
+	reg		[          1:0]	i_mode;
+	reg		[ `BW_DATA-1:0]	i_ibytes;
 	reg						i_ibytes_valid;
-	reg		[10:0]			i_ibyte_len;
-	reg		[9:0]			i_obyte_len;
+	reg		[`BW_IBLEN-1:0]	i_ibytes_len;
+	reg		[`BW_OBLEN-1:0]	i_obytes_len;
 	reg						i_clk;
 	reg						i_rstn;
-	reg		[7:0]			cnt_ibytes;
+	reg		[`BW_IBCNT:0]	cnt_ibytes;
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
 			cnt_ibytes	<= 0;
 		end else begin
-			if ((i_ibytes_valid && o_ibytes_ready) && (i_ibyte_len / 8 - 1 > cnt_ibytes) ) begin
+			if ((i_ibytes_valid && o_ibytes_ready) && (i_ibytes_len / 8 - 1 > cnt_ibytes) ) begin
 				cnt_ibytes	<= cnt_ibytes + 1;
 			end else begin
 				if (o_obytes_valid) begin
@@ -61,14 +59,10 @@ module keccak_tb;
 	end
 
 	always @(*) begin
-		i_ibytes	= vi_ibytes[i][vi_ibyte_len[i]*8-1-(64*cnt_ibytes)-:64];
+		i_ibytes	= vi_ibytes[i][vi_ibytes_len[i]*8-1-(64*cnt_ibytes)-:64];
 	end
 
 	keccak
-	#(
-		.BW_DATA			(`BW_DATA			),
-		.BW_CTRL			(`BW_CTRL			)
-	)
 	u_keccak(
 		.o_obytes			(o_obytes			),
 		.o_obytes_valid		(o_obytes_valid		),
@@ -76,8 +70,8 @@ module keccak_tb;
 		.i_mode				(i_mode				),
 		.i_ibytes			(i_ibytes			),
 		.i_ibytes_valid		(i_ibytes_valid		),
-		.i_ibyte_len		(i_ibyte_len		),
-		.i_obyte_len		(i_obyte_len		),
+		.i_ibytes_len		(i_ibytes_len		),
+		.i_obytes_len		(i_obytes_len		),
 		.i_clk				(i_clk				),
 		.i_rstn				(i_rstn				)
 	);
@@ -93,15 +87,15 @@ module keccak_tb;
 	reg		[784*8-1:0]		vo_obytes[0:`NVEC-1];
 	reg		[1184*8-1:0]	vi_ibytes[0:`NVEC-1];
 	reg		[1:0]			vi_mode[0:`NVEC-1];
-	reg		[10:0]			vi_ibyte_len[0:`NVEC-1];
-	reg		[9:0]			vi_obyte_len[0:`NVEC-1];
+	reg		[10:0]			vi_ibytes_len[0:`NVEC-1];
+	reg		[9:0]			vi_obytes_len[0:`NVEC-1];
 
 	initial begin
 		$readmemh("../../vec/keccak/o_obytes.vec",		vo_obytes);
 		$readmemh("../../vec/keccak/i_ibytes.vec",		vi_ibytes);
 		$readmemh("../../vec/keccak/i_mode.vec",		vi_mode);
-		$readmemh("../../vec/keccak/i_ibyte_len.vec",	vi_ibyte_len);
-		$readmemh("../../vec/keccak/i_obyte_len.vec",	vi_obyte_len);
+		$readmemh("../../vec/keccak/i_ibytes_len.vec",	vi_ibytes_len);
+		$readmemh("../../vec/keccak/i_obytes_len.vec",	vi_obytes_len);
 	end
 
 // --------------------------------------------------
@@ -116,8 +110,8 @@ module keccak_tb;
 			i_mode			= 0;
 			i_ibytes		= 0;
 			i_ibytes_valid	= 0;
-			i_ibyte_len		= 0;
-			i_obyte_len		= 0;
+			i_ibytes_len	= 0;
+			i_obytes_len	= 0;
 			i_clk			= 1;
 			i_rstn			= 0;
 			cnt_ibytes		= 0;
@@ -139,8 +133,8 @@ module keccak_tb;
 		begin
 			$sformat(taskState,	"VEC[%3d]", i);
 			i_mode			= vi_mode[i];
-			i_ibyte_len		= vi_ibyte_len[i];
-			i_obyte_len		= vi_obyte_len[i];
+			i_ibytes_len	= vi_ibytes_len[i];
+			i_obytes_len	= vi_obytes_len[i];
 			i_ibytes_valid	= 1;
 			//while (i_ibytes_valid && o_ibytes_ready) begin
 			//	@ (posedge i_clk) begin
