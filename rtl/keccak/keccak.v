@@ -11,6 +11,7 @@
 module keccak
 (	
 	output reg	[ `BW_DATA-1:0]	o_obytes,
+	output reg					o_obytes_done,
 	output reg					o_obytes_valid,
 	output reg					o_ibytes_ready,
 	input		[          1:0]	i_mode,
@@ -30,12 +31,18 @@ module keccak
 	localparam					SHA3_256	= 2'b10;
 	localparam					SHA3_512	= 2'b11;
 
+	reg			[`BW_IBLEN-1:0]	ibytes_len         ;
 	reg			[          7:0]	rate               ; // Bytes
 	reg			[          7:0]	suffix             ;
 	reg			[`BW_DATA -1:0]	block_buffer[0:20] ;
 	reg			[`BW_IBCNT-1:0]	cnt_ibytes         ;
 	reg			[`BW_OBCNT-1:0]	cnt_obytes         ;
 	reg			[`BW_OBLEN-1:0]	obytes_len_init    ;
+
+	// InputByteLen Modification
+	always @(*) begin
+		ibytes_len	= |i_ibytes_len[2:0] ? {i_ibytes_len[`BW_IBLEN-1:3], 3'b0} + 8 : i_ibytes_len;
+	end
 
 	// Rate (Bytes)
 	always @(*) begin
@@ -100,23 +107,31 @@ module keccak
 	// Next State Logic
 	always @(*) begin
 		case(c_state)
-			S_IDLE			: n_state	=	(i_ibytes_valid)																? S_FETCH		: S_IDLE  ;
-			S_FETCH			: n_state	=	(cnt_ibytes % 21 == 20) || (cnt_ibytes == $ceil(i_ibytes_len*8/`BW_DATA)-1)		? S_ABSB		: S_FETCH ;
-			S_ABSB			: n_state	=	(block_size == rate)															? S_ABSB_KECCAK :
-											(cnt_ibytes == $ceil(i_ibytes_len*8/`BW_DATA)-1)									? S_PADD_KECCAK : S_FETCH ;
-			S_ABSB_KECCAK	: n_state	=	(!keccak_o_valid)																? S_ABSB_KECCAK	: S_FETCH ;
-			S_PADD_KECCAK	: n_state	=	(!keccak_o_valid)																? S_PADD_KECCAK	: S_SQUZ  ;
-			S_SQUZ			: n_state	=	(cnt_obytes == $ceil(i_obytes_len*8/`BW_DATA)-1)								? S_DONE		:
-											(cnt_ibytes % 21 == 20)	&& (obytes_len - block_size > 0)						? S_SQUZ_KECCAK	: S_SQUZ  ;
-			S_SQUZ_KECCAK	: n_state	=	(!keccak_o_valid)																? S_SQUZ_KECCAK	: S_SQUZ  ;
+			S_IDLE			: n_state	=	i_ibytes_valid															? S_FETCH		: S_IDLE  ;
+			S_FETCH			: n_state	=	(cnt_ibytes % 21 == 20) || (cnt_ibytes == (ibytes_len*8/`BW_DATA)-1)	? S_ABSB		: S_FETCH ;
+			S_ABSB			: n_state	=	block_size == rate														? S_ABSB_KECCAK :
+											cnt_ibytes == (ibytes_len*8/`BW_DATA-1)									? S_PADD_KECCAK : S_FETCH ;
+			S_ABSB_KECCAK	: n_state	=	!keccak_o_valid															? S_ABSB_KECCAK	: S_FETCH ;
+			S_PADD_KECCAK	: n_state	=	!keccak_o_valid															? S_PADD_KECCAK	: S_SQUZ  ;
+			S_SQUZ			: n_state	=	cnt_obytes == (i_obytes_len*8/`BW_DATA-1)								? S_DONE		:
+											(cnt_obytes % 21 == 20)	&& (obytes_len > 0)								? S_SQUZ_KECCAK	: S_SQUZ  ;
+			S_SQUZ_KECCAK	: n_state	=	!keccak_o_valid															? S_SQUZ_KECCAK	: S_SQUZ  ;
 			S_DONE			: n_state	=	S_IDLE;
 		endcase
 	end
 
 	always @(*) begin
 		case (c_state)
+//			S_IDLE			,
 			S_FETCH			: o_ibytes_ready	= 1;
 			default			: o_ibytes_ready	= 0;
+		endcase
+	end
+
+	always @(*) begin
+		case (c_state)
+			S_DONE			: o_obytes_done		= 1;
+			default			: o_obytes_done		= 0;
 		endcase
 	end
 
@@ -124,29 +139,17 @@ module keccak
 		if (!i_rstn) begin
 			cnt_ibytes	<= 0;
 		end else begin
-			if (c_state == S_FETCH && n_state == S_FETCH) begin
+			if ((c_state == S_FETCH && n_state == S_FETCH) && i_ibytes_valid) begin
 				cnt_ibytes	<= cnt_ibytes + 1;
 			end else begin
-				cnt_ibytes	<= cnt_ibytes;
+				cnt_ibytes	<= o_obytes_done ? 0 : cnt_ibytes;
 			end
-		end
-	end
-
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			cnt_obytes	<=	0;
-		end else begin
-			case (c_state)
-				S_IDLE	:	cnt_obytes	<= 0;
-				S_SQUZ	:	cnt_obytes	<= cnt_obytes + 1;
-				default	:	cnt_obytes	<= cnt_obytes;
-			endcase
 		end
 	end
 
 	always @(*) begin
 		case (c_state)
-			S_FETCH			: block_size	= ((i_ibytes_len - input_offset) > rate	)	? rate : i_ibytes_len - input_offset;
+			S_FETCH			: block_size	= ((ibytes_len - input_offset) > rate	)	? rate : ibytes_len - input_offset;
 			S_ABSB_KECCAK	: block_size	= 0;
 			S_SQUZ			: block_size	= (obytes_len > rate) 						? rate : obytes_len;
 			default			: block_size	= block_size;
@@ -171,7 +174,7 @@ module keccak
 		end else begin
 			case (c_state)
 				S_FETCH		: obytes_len	<= obytes_len_init;
-				S_SQUZ		: obytes_len	<= obytes_len - block_size;
+				S_SQUZ		: obytes_len	<= (cnt_obytes % 21 == 20) ? obytes_len - block_size : obytes_len;
 				default		: obytes_len	<= obytes_len;
 			endcase
 		end
@@ -230,27 +233,27 @@ module keccak
 									block_buffer[20]	<= 0;
 				end
 				S_SQUZ			: begin
-									block_buffer[ 0]	<= keccak_i_state[`BW_KECCAK-1-( 0*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 1]	<= keccak_i_state[`BW_KECCAK-1-( 1*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 2]	<= keccak_i_state[`BW_KECCAK-1-( 2*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 3]	<= keccak_i_state[`BW_KECCAK-1-( 3*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 4]	<= keccak_i_state[`BW_KECCAK-1-( 4*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 5]	<= keccak_i_state[`BW_KECCAK-1-( 5*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 6]	<= keccak_i_state[`BW_KECCAK-1-( 6*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 7]	<= keccak_i_state[`BW_KECCAK-1-( 7*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 8]	<= keccak_i_state[`BW_KECCAK-1-( 8*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 9]	<= keccak_i_state[`BW_KECCAK-1-( 9*`BW_DATA)-:`BW_DATA];
-									block_buffer[10]	<= keccak_i_state[`BW_KECCAK-1-(10*`BW_DATA)-:`BW_DATA];
-									block_buffer[11]	<= keccak_i_state[`BW_KECCAK-1-(11*`BW_DATA)-:`BW_DATA];
-									block_buffer[12]	<= keccak_i_state[`BW_KECCAK-1-(12*`BW_DATA)-:`BW_DATA];
-									block_buffer[13]	<= keccak_i_state[`BW_KECCAK-1-(13*`BW_DATA)-:`BW_DATA];
-									block_buffer[14]	<= keccak_i_state[`BW_KECCAK-1-(14*`BW_DATA)-:`BW_DATA];
-									block_buffer[15]	<= keccak_i_state[`BW_KECCAK-1-(15*`BW_DATA)-:`BW_DATA];
-									block_buffer[16]	<= keccak_i_state[`BW_KECCAK-1-(16*`BW_DATA)-:`BW_DATA];
-									block_buffer[17]	<= keccak_i_state[`BW_KECCAK-1-(17*`BW_DATA)-:`BW_DATA];
-									block_buffer[18]	<= keccak_i_state[`BW_KECCAK-1-(18*`BW_DATA)-:`BW_DATA];
-									block_buffer[19]	<= keccak_i_state[`BW_KECCAK-1-(19*`BW_DATA)-:`BW_DATA];
-									block_buffer[20]	<= keccak_i_state[`BW_KECCAK-1-(20*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 0]	<= keccak_o_state[`BW_KCCK-1-( 0*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 1]	<= keccak_o_state[`BW_KCCK-1-( 1*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 2]	<= keccak_o_state[`BW_KCCK-1-( 2*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 3]	<= keccak_o_state[`BW_KCCK-1-( 3*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 4]	<= keccak_o_state[`BW_KCCK-1-( 4*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 5]	<= keccak_o_state[`BW_KCCK-1-( 5*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 6]	<= keccak_o_state[`BW_KCCK-1-( 6*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 7]	<= keccak_o_state[`BW_KCCK-1-( 7*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 8]	<= keccak_o_state[`BW_KCCK-1-( 8*`BW_DATA)-:`BW_DATA];
+									block_buffer[ 9]	<= keccak_o_state[`BW_KCCK-1-( 9*`BW_DATA)-:`BW_DATA];
+									block_buffer[10]	<= keccak_o_state[`BW_KCCK-1-(10*`BW_DATA)-:`BW_DATA];
+									block_buffer[11]	<= keccak_o_state[`BW_KCCK-1-(11*`BW_DATA)-:`BW_DATA];
+									block_buffer[12]	<= keccak_o_state[`BW_KCCK-1-(12*`BW_DATA)-:`BW_DATA];
+									block_buffer[13]	<= keccak_o_state[`BW_KCCK-1-(13*`BW_DATA)-:`BW_DATA];
+									block_buffer[14]	<= keccak_o_state[`BW_KCCK-1-(14*`BW_DATA)-:`BW_DATA];
+									block_buffer[15]	<= keccak_o_state[`BW_KCCK-1-(15*`BW_DATA)-:`BW_DATA];
+									block_buffer[16]	<= keccak_o_state[`BW_KCCK-1-(16*`BW_DATA)-:`BW_DATA];
+									block_buffer[17]	<= keccak_o_state[`BW_KCCK-1-(17*`BW_DATA)-:`BW_DATA];
+									block_buffer[18]	<= keccak_o_state[`BW_KCCK-1-(18*`BW_DATA)-:`BW_DATA];
+									block_buffer[19]	<= keccak_o_state[`BW_KCCK-1-(19*`BW_DATA)-:`BW_DATA];
+									block_buffer[20]	<= keccak_o_state[`BW_KCCK-1-(20*`BW_DATA)-:`BW_DATA];
 				end
 				default		: begin
 									block_buffer[ 0]	<= block_buffer[ 0];
@@ -305,22 +308,22 @@ module keccak
 // --------------------------------------------------
 //	KeccakF1600
 // --------------------------------------------------
-	wire 		[`BW_KECCAK-1:0]	keccak_o_state;
-	wire 							keccak_o_valid;
-	reg			[`BW_KECCAK-1:0]	keccak_i_state;
-	reg								keccak_i_valid;
+	wire 		[`BW_KCCK-1:0]	keccak_o_state;
+	wire 						keccak_o_valid;
+	reg			[`BW_KCCK-1:0]	keccak_i_state;
+	reg							keccak_i_valid;
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
 			keccak_i_state	<= 0;
 		end else begin
 			case (c_state)
-				S_ABSB			:	keccak_i_state[`BW_KECCAK-1-:`BLOCK_SIZE*8]		<= keccak_i_state[`BW_KECCAK-1-:`BLOCK_SIZE*8] ^ block   ;
+				S_ABSB			:	keccak_i_state[`BW_KCCK-1-:`BLOCK_SIZE*8]		<= keccak_i_state[`BW_KCCK-1-:`BLOCK_SIZE*8] ^ block   ;
 				S_ABSB_KECCAK	:	keccak_i_state									<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
 				S_PADD_KECCAK	:	begin
 								if (p_state == S_ABSB) begin
-									keccak_i_state[`BW_KECCAK-1-block_size*8-:8]	<= keccak_i_state[`BW_KECCAK-1-block_size*8-:8] ^ suffix ;
-									keccak_i_state[`BW_KECCAK-1-(rate-1)*8-:8]		<= keccak_i_state[`BW_KECCAK-1-(rate-1)*8-:8]   ^ 8'h80  ;
+									keccak_i_state[`BW_KCCK-1-block_size*8-:8]	<= keccak_i_state[`BW_KCCK-1-block_size*8-:8] ^ suffix ;
+									keccak_i_state[`BW_KCCK-1-(rate-1)*8-:8]		<= keccak_i_state[`BW_KCCK-1-(rate-1)*8-:8]   ^ 8'h80  ;
 								end else begin
 									keccak_i_state									<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
 								end
@@ -345,9 +348,6 @@ module keccak
 	end
 
 	keccakf1600
-	#(
-			.BW_DATA		(`BW_KECCAK			)
-	 )
 	u_keccakf1600(
 		.o_state			(keccak_o_state		),
 		.o_valid			(keccak_o_valid		),
@@ -360,21 +360,22 @@ module keccak
 // --------------------------------------------------
 //	Output Bytes
 // --------------------------------------------------
+
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
+			cnt_obytes		<= 0;
 			o_obytes		<= 0;
 			o_obytes_valid	<= 0;
 		end else begin
-			case (c_state)
-				S_SQUZ	: begin
-					o_obytes		<= block_buffer[cnt_obytes % 21];
-					o_obytes_valid	<= 1;
-				end
-				default	: begin
-					o_obytes		<= o_obytes;
-					o_obytes_valid	<= 0;
-				end
-			endcase
+			if (c_state == S_SQUZ && p_state == S_SQUZ) begin
+				cnt_obytes		<= cnt_obytes + 1;
+				o_obytes		<= block_buffer[cnt_obytes % 21];
+				o_obytes_valid	<= 1;
+			end else begin
+				cnt_obytes		<= o_obytes_done ? 0: cnt_obytes;
+				o_obytes		<= o_obytes;
+				o_obytes_valid	<= 0;
+			end
 		end
 	end
 
@@ -402,7 +403,7 @@ module keccak
 		end else begin
 			case (c_state)
 				S_IDLE	: IBYTES													<= 0        ;
-				S_FETCH	: IBYTES[i_ibytes_len*8-1-(`BW_DATA*cnt_ibytes)-:`BW_DATA]	<= i_ibytes ;
+				S_FETCH	: IBYTES[ibytes_len*8-1-(`BW_DATA*cnt_ibytes)-:`BW_DATA]	<= i_ibytes ;
 				default	: IBYTES													<= IBYTES   ;
 			endcase
 		end
@@ -412,11 +413,15 @@ module keccak
 		if (!i_rstn) begin
 			OBYTES		<= 0;
 		end else begin
-			case (c_state)
-				S_IDLE	: OBYTES													<= 0;
-				S_SQUZ	: OBYTES[i_obytes_len*8-1-(`BW_DATA*cnt_obytes)-:`BW_DATA]	<= o_obytes;
-				default	: OBYTES													<= OBYTES;
-			endcase
+			if (o_obytes_valid) begin
+				OBYTES[i_obytes_len*8-1-(`BW_DATA*(cnt_obytes-1))-:`BW_DATA]		<= o_obytes;
+			end else begin
+				if (c_state == S_PADD_KECCAK) begin
+					OBYTES		<= 0;
+				end else begin
+					OBYTES		<= OBYTES;
+				end
+			end
 		end
 	end
 	`endif

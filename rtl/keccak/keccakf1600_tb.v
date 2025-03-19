@@ -10,7 +10,6 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define BW_DATA		64*5*5	// Bitwidth of ~~
 `define NVEC		5		// # of Test Vector
 
 // --------------------------------------------------
@@ -23,17 +22,14 @@ module keccakf1600_tb;
 //	DUT Signals & Instantiate
 // --------------------------------------------------
 
-	output 		[`BW_DATA-1:0]	o_state;
+	output 		[`BW_KCCK-1:0]	o_state;
 	output 						o_valid;
-	reg			[`BW_DATA-1:0]	i_state;
+	reg			[`BW_KCCK-1:0]	i_state;
 	reg							i_valid;
 	reg							i_clk;
 	reg							i_rstn;
 
 	keccakf1600
-	#(
-		.BW_DATA				(`BW_DATA			)
-	)
 	u_keccakf1600(
 		.o_state				(o_state			),
 		.o_valid				(o_valid			),

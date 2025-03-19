@@ -11,7 +11,7 @@
 `define	BLOCK_SIZE		168
 
 `define	BW_DATA			64
-`define	BW_KECCAK		1600
+`define	BW_KCCK			1600
 `define	BW_IBLEN		$clog2	(`MAX_IBYTES            )
 `define	BW_OBLEN		$clog2	(`MAX_OBYTES            )
 `define	BW_IBCNT		$clog2	(`MAX_IBYTES*8/`BW_DATA )

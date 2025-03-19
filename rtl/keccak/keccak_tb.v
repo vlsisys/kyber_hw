@@ -31,6 +31,7 @@ module keccak_tb;
 //	DUT Signals & Instantiate
 // --------------------------------------------------
 	wire	[ `BW_DATA-1:0]	o_obytes;
+	wire					o_obytes_done;
 	wire					o_obytes_valid;
 	wire					o_ibytes_ready;
 	reg		[          1:0]	i_mode;
@@ -40,31 +41,41 @@ module keccak_tb;
 	reg		[`BW_OBLEN-1:0]	i_obytes_len;
 	reg						i_clk;
 	reg						i_rstn;
-	reg		[`BW_IBCNT:0]	cnt_ibytes;
+	reg		[  `BW_IBCNT:0]	cnt_in;
+	reg		[`BW_IBLEN-1:0]	ibytes_len         ;
+
+	always @(*) begin
+		ibytes_len	= |i_ibytes_len[2:0] ? {i_ibytes_len[`BW_IBLEN-1:3], 3'b0} + 8 : i_ibytes_len;
+	end
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
-			cnt_ibytes	<= 0;
+			cnt_in			<= 0;
 		end else begin
-			if ((i_ibytes_valid && o_ibytes_ready) && (i_ibytes_len / 8 - 1 > cnt_ibytes) ) begin
-				cnt_ibytes	<= cnt_ibytes + 1;
+			if ((i_ibytes_valid && o_ibytes_ready) && (ibytes_len / 8- 1 > cnt_in)) begin
+				cnt_in			<= cnt_in + 1;
 			end else begin
-				if (o_obytes_valid) begin
-					cnt_ibytes	<= 0;
+				if (o_obytes_done) begin
+					cnt_in			<= 0;
 				end else begin
-					cnt_ibytes	<= cnt_ibytes;
+					cnt_in			<= cnt_in;
 				end
 			end
 		end
 	end
 
 	always @(*) begin
-		i_ibytes	= vi_ibytes[i][vi_ibytes_len[i]*8-1-(64*cnt_ibytes)-:64];
+		if ((i_ibytes_valid && o_ibytes_ready) && (ibytes_len / 8 > cnt_in)) begin
+			i_ibytes		= vi_ibytes[i][ibytes_len*8-1-(64*cnt_in)-:64];
+		end else begin
+			i_ibytes		= 0;
+		end
 	end
 
 	keccak
 	u_keccak(
 		.o_obytes			(o_obytes			),
+		.o_obytes_done		(o_obytes_done		),
 		.o_obytes_valid		(o_obytes_valid		),
 		.o_ibytes_ready		(o_ibytes_ready		),
 		.i_mode				(i_mode				),
@@ -84,18 +95,18 @@ module keccak_tb;
 // --------------------------------------------------
 //	Test Vector Configuration
 // --------------------------------------------------
-	reg		[784*8-1:0]		vo_obytes[0:`NVEC-1];
-	reg		[1184*8-1:0]	vi_ibytes[0:`NVEC-1];
-	reg		[1:0]			vi_mode[0:`NVEC-1];
-	reg		[10:0]			vi_ibytes_len[0:`NVEC-1];
-	reg		[9:0]			vi_obytes_len[0:`NVEC-1];
+	reg		[              1:0]	vi_mode      [0:`NVEC-1];
+	reg		[`MAX_IBYTES*8-1:0]	vi_ibytes    [0:`NVEC-1];
+	reg		[`MAX_OBYTES*8-1:0]	vo_obytes    [0:`NVEC-1];
+	reg		[    `BW_IBLEN-1:0]	vi_ibytes_len[0:`NVEC-1];
+	reg		[    `BW_OBLEN-1:0]	vi_obytes_len[0:`NVEC-1];
 
 	initial begin
-		$readmemh("../../vec/keccak/o_obytes.vec",		vo_obytes);
-		$readmemh("../../vec/keccak/i_ibytes.vec",		vi_ibytes);
-		$readmemh("../../vec/keccak/i_mode.vec",		vi_mode);
-		$readmemh("../../vec/keccak/i_ibytes_len.vec",	vi_ibytes_len);
-		$readmemh("../../vec/keccak/i_obytes_len.vec",	vi_obytes_len);
+		$readmemh("../../vec/keccak/i_mode.vec",		vi_mode       ) ;
+		$readmemh("../../vec/keccak/i_ibytes.vec",		vi_ibytes     ) ;
+		$readmemh("../../vec/keccak/o_obytes.vec",		vo_obytes     ) ;
+		$readmemh("../../vec/keccak/i_ibytes_len.vec",	vi_ibytes_len ) ;
+		$readmemh("../../vec/keccak/i_obytes_len.vec",	vi_obytes_len ) ;
 	end
 
 // --------------------------------------------------
@@ -114,7 +125,7 @@ module keccak_tb;
 			i_obytes_len	= 0;
 			i_clk			= 1;
 			i_rstn			= 0;
-			cnt_ibytes		= 0;
+			cnt_in			= 0;
 		end
 	endtask
 
@@ -136,21 +147,15 @@ module keccak_tb;
 			i_ibytes_len	= vi_ibytes_len[i];
 			i_obytes_len	= vi_obytes_len[i];
 			i_ibytes_valid	= 1;
-			//while (i_ibytes_valid && o_ibytes_ready) begin
-			//	@ (posedge i_clk) begin
-			//		i_ibytes		= vi_ibytes[i][vi_ibyte_len[i]*8-1-(64*cnt_ibytes)-:64];
-			//	end
-			//end
 		end
 	endtask
 
 	task vecVerify;
 		input	[$clog2(`NVEC)-1:0]	i;
 		begin
-			cnt_ibytes		= 0;
 			#(0.1*1000/`CLKFREQ);
-			if (	o_obytes	!= vo_obytes[i])  begin $display("[Idx: %3d] Mismatched o_obytes", i); end
-			if ((	o_obytes	!= vo_obytes[i])) begin err++; end
+			if (	u_keccak.OBYTES != vo_obytes[i])  begin $display("[Idx: %3d] Mismatched o_obytes", i); end
+			if ((	u_keccak.OBYTES != vo_obytes[i])) begin err++; end
 			#(0.9*1000/`CLKFREQ);
 		end
 	endtask
@@ -165,10 +170,11 @@ module keccak_tb;
 
 		for (i=0; i<`SIMCYCLE; i++) begin
 			vecInsert(i);
-			@ (negedge o_obytes_valid) begin
+			@ (negedge o_obytes_done) begin
 				vecVerify(i);
 				i_ibytes_valid	= 0;
 			end
+			#(10*1000/`CLKFREQ);
 		end
 		#(1000/`CLKFREQ);
 		$finish;
