@@ -10,8 +10,9 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		2		// # of Test Vector
+`define NVEC		10		// # of Test Vector
 `define	DEBUG
+`define	FINISH		1000
 
 // --------------------------------------------------
 //	Infomation
@@ -171,8 +172,9 @@ module keccak_tb;
 		for (i=0; i<`SIMCYCLE; i++) begin
 			vecInsert(i);
 			@ (negedge o_obytes_done) begin
-				vecVerify(i);
+				#(1000/`CLKFREQ);
 				i_ibytes_valid	= 0;
+				vecVerify(i);
 			end
 			#(10*1000/`CLKFREQ);
 		end
@@ -187,11 +189,15 @@ module keccak_tb;
 	initial begin
 		if ($value$plusargs("vcd_file=%s", vcd_file)) begin
 			$dumpfile(vcd_file);
+			for (i=0; i<20; i++) begin
+				$dumpvars(0, u_keccak.block_buffer[i]);
+			end
 			$dumpvars;
 		end else begin
 			$dumpfile("keccak_tb.vcd");
 			$dumpvars;
 		end
+		#(`FINISH*1000/`CLKFREQ)	$finish;
 	end
 
 endmodule

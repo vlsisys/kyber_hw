@@ -140,6 +140,7 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
             state = KeccakF1600(state)
             blockSize = 0
     # === Do the padding and switch to the squeezing phase ===
+    print(f'state:{state.hex()}')
     state[blockSize] = state[blockSize] ^ delimitedSuffix
     #k = 0
     #if (((delimitedSuffix & 0x80) != 0) and (blockSize == (rateInBytes-1))):
@@ -147,10 +148,10 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     #    print(f'Padding[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
     #    k = k+1
     state[rateInBytes-1] = state[rateInBytes-1] ^ 0x80
-    #print(f'state:{state.hex()}')
+    print(f'state:{state.hex()}')
     state = KeccakF1600(state)
     # === Squeeze out all the output blocks ===
-    #print(f'state:{state.hex()}')
+    print(f'state:{state.hex()}')
     k = 0
     while(outputByteLen > 0):
         blockSize = min(outputByteLen, rateInBytes)
@@ -161,7 +162,10 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
         if (outputByteLen > 0):
             print(f'SQUZ_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
             state = KeccakF1600(state)
-    i_ibytes = int(int.from_bytes(inputBytes))
+    if i_ibytes_len % 8 == 0:
+        i_ibytes = int(int.from_bytes(inputBytes))
+    else:
+        i_ibytes = int(int.from_bytes(inputBytes) << 8*(8 - (i_ibytes_len % 8))) 
     o_obytes = int(int.from_bytes(outputBytes))
     #print(i_ibytes, i_obyte_len, o_bytes)
     gen_vec('keccak', i_mode, i_ibytes, i_ibytes_len, i_obytes_len, o_obytes)

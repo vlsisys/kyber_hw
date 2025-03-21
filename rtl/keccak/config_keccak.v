@@ -4,6 +4,8 @@
 //	* Filename		: config_keccak.v
 //	* Description	: 
 // ==================================================
+`define	BUS(bitwidth)	[((bitwidth)-1):0]
+
 `define	MAX_IBYTES		1184
 `define	MAX_OBYTES		784
 `define	MAX_IB_CNT		$ceil	(`MAX_IBYTES*8/`BW_DATA )

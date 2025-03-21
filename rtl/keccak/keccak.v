@@ -149,7 +149,7 @@ module keccak
 
 	always @(*) begin
 		case (c_state)
-			S_FETCH			: block_size	= ((ibytes_len - input_offset) > rate	)	? rate : ibytes_len - input_offset;
+			S_FETCH			: block_size	= ((i_ibytes_len - input_offset) > rate	)	? rate : i_ibytes_len - input_offset;
 			S_ABSB_KECCAK	: block_size	= 0;
 			S_SQUZ			: block_size	= (obytes_len > rate) 						? rate : obytes_len;
 			default			: block_size	= block_size;
@@ -208,75 +208,78 @@ module keccak
 			block_buffer[20]	<= 0;
 		end else begin
 			case (c_state)
-				S_FETCH			:	block_buffer[cnt_ibytes]	<= i_ibytes;
-				S_ABSB_KECCAK	: begin
-									block_buffer[ 0]	<= 0;
-									block_buffer[ 1]	<= 0;
-									block_buffer[ 2]	<= 0;
-									block_buffer[ 3]	<= 0;
-									block_buffer[ 4]	<= 0;
-									block_buffer[ 5]	<= 0;
-									block_buffer[ 6]	<= 0;
-									block_buffer[ 7]	<= 0;
-									block_buffer[ 8]	<= 0;
-									block_buffer[ 9]	<= 0;
-									block_buffer[10]	<= 0;
-									block_buffer[11]	<= 0;
-									block_buffer[12]	<= 0;
-									block_buffer[13]	<= 0;
-									block_buffer[14]	<= 0;
-									block_buffer[15]	<= 0;
-									block_buffer[16]	<= 0;
-									block_buffer[17]	<= 0;
-									block_buffer[18]	<= 0;
-									block_buffer[19]	<= 0;
-									block_buffer[20]	<= 0;
+				S_FETCH			: begin
+					block_buffer[cnt_ibytes]	<= i_ibytes;
+				end
+				S_ABSB_KECCAK	,
+				S_DONE			: begin
+					block_buffer[ 0]	<= 0;
+					block_buffer[ 1]	<= 0;
+					block_buffer[ 2]	<= 0;
+					block_buffer[ 3]	<= 0;
+					block_buffer[ 4]	<= 0;
+					block_buffer[ 5]	<= 0;
+					block_buffer[ 6]	<= 0;
+					block_buffer[ 7]	<= 0;
+					block_buffer[ 8]	<= 0;
+					block_buffer[ 9]	<= 0;
+					block_buffer[10]	<= 0;
+					block_buffer[11]	<= 0;
+					block_buffer[12]	<= 0;
+					block_buffer[13]	<= 0;
+					block_buffer[14]	<= 0;
+					block_buffer[15]	<= 0;
+					block_buffer[16]	<= 0;
+					block_buffer[17]	<= 0;
+					block_buffer[18]	<= 0;
+					block_buffer[19]	<= 0;
+					block_buffer[20]	<= 0;
 				end
 				S_SQUZ			: begin
-									block_buffer[ 0]	<= keccak_o_state[`BW_KCCK-1-( 0*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 1]	<= keccak_o_state[`BW_KCCK-1-( 1*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 2]	<= keccak_o_state[`BW_KCCK-1-( 2*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 3]	<= keccak_o_state[`BW_KCCK-1-( 3*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 4]	<= keccak_o_state[`BW_KCCK-1-( 4*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 5]	<= keccak_o_state[`BW_KCCK-1-( 5*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 6]	<= keccak_o_state[`BW_KCCK-1-( 6*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 7]	<= keccak_o_state[`BW_KCCK-1-( 7*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 8]	<= keccak_o_state[`BW_KCCK-1-( 8*`BW_DATA)-:`BW_DATA];
-									block_buffer[ 9]	<= keccak_o_state[`BW_KCCK-1-( 9*`BW_DATA)-:`BW_DATA];
-									block_buffer[10]	<= keccak_o_state[`BW_KCCK-1-(10*`BW_DATA)-:`BW_DATA];
-									block_buffer[11]	<= keccak_o_state[`BW_KCCK-1-(11*`BW_DATA)-:`BW_DATA];
-									block_buffer[12]	<= keccak_o_state[`BW_KCCK-1-(12*`BW_DATA)-:`BW_DATA];
-									block_buffer[13]	<= keccak_o_state[`BW_KCCK-1-(13*`BW_DATA)-:`BW_DATA];
-									block_buffer[14]	<= keccak_o_state[`BW_KCCK-1-(14*`BW_DATA)-:`BW_DATA];
-									block_buffer[15]	<= keccak_o_state[`BW_KCCK-1-(15*`BW_DATA)-:`BW_DATA];
-									block_buffer[16]	<= keccak_o_state[`BW_KCCK-1-(16*`BW_DATA)-:`BW_DATA];
-									block_buffer[17]	<= keccak_o_state[`BW_KCCK-1-(17*`BW_DATA)-:`BW_DATA];
-									block_buffer[18]	<= keccak_o_state[`BW_KCCK-1-(18*`BW_DATA)-:`BW_DATA];
-									block_buffer[19]	<= keccak_o_state[`BW_KCCK-1-(19*`BW_DATA)-:`BW_DATA];
-									block_buffer[20]	<= keccak_o_state[`BW_KCCK-1-(20*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 0]	<= keccak_o_state[`BW_KCCK-1-( 0*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 1]	<= keccak_o_state[`BW_KCCK-1-( 1*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 2]	<= keccak_o_state[`BW_KCCK-1-( 2*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 3]	<= keccak_o_state[`BW_KCCK-1-( 3*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 4]	<= keccak_o_state[`BW_KCCK-1-( 4*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 5]	<= keccak_o_state[`BW_KCCK-1-( 5*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 6]	<= keccak_o_state[`BW_KCCK-1-( 6*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 7]	<= keccak_o_state[`BW_KCCK-1-( 7*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 8]	<= keccak_o_state[`BW_KCCK-1-( 8*`BW_DATA)-:`BW_DATA];
+					block_buffer[ 9]	<= keccak_o_state[`BW_KCCK-1-( 9*`BW_DATA)-:`BW_DATA];
+					block_buffer[10]	<= keccak_o_state[`BW_KCCK-1-(10*`BW_DATA)-:`BW_DATA];
+					block_buffer[11]	<= keccak_o_state[`BW_KCCK-1-(11*`BW_DATA)-:`BW_DATA];
+					block_buffer[12]	<= keccak_o_state[`BW_KCCK-1-(12*`BW_DATA)-:`BW_DATA];
+					block_buffer[13]	<= keccak_o_state[`BW_KCCK-1-(13*`BW_DATA)-:`BW_DATA];
+					block_buffer[14]	<= keccak_o_state[`BW_KCCK-1-(14*`BW_DATA)-:`BW_DATA];
+					block_buffer[15]	<= keccak_o_state[`BW_KCCK-1-(15*`BW_DATA)-:`BW_DATA];
+					block_buffer[16]	<= keccak_o_state[`BW_KCCK-1-(16*`BW_DATA)-:`BW_DATA];
+					block_buffer[17]	<= keccak_o_state[`BW_KCCK-1-(17*`BW_DATA)-:`BW_DATA];
+					block_buffer[18]	<= keccak_o_state[`BW_KCCK-1-(18*`BW_DATA)-:`BW_DATA];
+					block_buffer[19]	<= keccak_o_state[`BW_KCCK-1-(19*`BW_DATA)-:`BW_DATA];
+					block_buffer[20]	<= keccak_o_state[`BW_KCCK-1-(20*`BW_DATA)-:`BW_DATA];
 				end
 				default		: begin
-									block_buffer[ 0]	<= block_buffer[ 0];
-									block_buffer[ 1]	<= block_buffer[ 1];
-									block_buffer[ 2]	<= block_buffer[ 2];
-									block_buffer[ 3]	<= block_buffer[ 3];
-									block_buffer[ 4]	<= block_buffer[ 4];
-									block_buffer[ 5]	<= block_buffer[ 5];
-									block_buffer[ 6]	<= block_buffer[ 6];
-									block_buffer[ 7]	<= block_buffer[ 7];
-									block_buffer[ 8]	<= block_buffer[ 8];
-									block_buffer[ 9]	<= block_buffer[ 9];
-									block_buffer[10]	<= block_buffer[10];
-									block_buffer[11]	<= block_buffer[11];
-									block_buffer[12]	<= block_buffer[12];
-									block_buffer[13]	<= block_buffer[13];
-									block_buffer[14]	<= block_buffer[14];
-									block_buffer[15]	<= block_buffer[15];
-									block_buffer[16]	<= block_buffer[16];
-									block_buffer[17]	<= block_buffer[17];
-									block_buffer[18]	<= block_buffer[18];
-									block_buffer[19]	<= block_buffer[19];
-									block_buffer[20]	<= block_buffer[20];
+					block_buffer[ 0]	<= block_buffer[ 0];
+					block_buffer[ 1]	<= block_buffer[ 1];
+					block_buffer[ 2]	<= block_buffer[ 2];
+					block_buffer[ 3]	<= block_buffer[ 3];
+					block_buffer[ 4]	<= block_buffer[ 4];
+					block_buffer[ 5]	<= block_buffer[ 5];
+					block_buffer[ 6]	<= block_buffer[ 6];
+					block_buffer[ 7]	<= block_buffer[ 7];
+					block_buffer[ 8]	<= block_buffer[ 8];
+					block_buffer[ 9]	<= block_buffer[ 9];
+					block_buffer[10]	<= block_buffer[10];
+					block_buffer[11]	<= block_buffer[11];
+					block_buffer[12]	<= block_buffer[12];
+					block_buffer[13]	<= block_buffer[13];
+					block_buffer[14]	<= block_buffer[14];
+					block_buffer[15]	<= block_buffer[15];
+					block_buffer[16]	<= block_buffer[16];
+					block_buffer[17]	<= block_buffer[17];
+					block_buffer[18]	<= block_buffer[18];
+					block_buffer[19]	<= block_buffer[19];
+					block_buffer[20]	<= block_buffer[20];
 				end
 			endcase
 		end
@@ -318,18 +321,19 @@ module keccak
 			keccak_i_state	<= 0;
 		end else begin
 			case (c_state)
-				S_ABSB			:	keccak_i_state[`BW_KCCK-1-:`BLOCK_SIZE*8]		<= keccak_i_state[`BW_KCCK-1-:`BLOCK_SIZE*8] ^ block   ;
-				S_ABSB_KECCAK	:	keccak_i_state									<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
+				S_DONE			:	keccak_i_state								<= 0;
+				S_ABSB			:	keccak_i_state[`BW_KCCK-1-:`BLOCK_SIZE*8]	<= keccak_i_state[`BW_KCCK-1-:`BLOCK_SIZE*8] ^ block   ;
+				S_ABSB_KECCAK	:	keccak_i_state								<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
 				S_PADD_KECCAK	:	begin
 								if (p_state == S_ABSB) begin
 									keccak_i_state[`BW_KCCK-1-block_size*8-:8]	<= keccak_i_state[`BW_KCCK-1-block_size*8-:8] ^ suffix ;
-									keccak_i_state[`BW_KCCK-1-(rate-1)*8-:8]		<= keccak_i_state[`BW_KCCK-1-(rate-1)*8-:8]   ^ 8'h80  ;
+									keccak_i_state[`BW_KCCK-1-(rate-1)*8-:8]	<= keccak_i_state[`BW_KCCK-1-(rate-1)*8-:8]   ^ 8'h80  ;
 								end else begin
-									keccak_i_state									<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
+									keccak_i_state								<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
 								end
 				end
-				S_SQUZ_KECCAK	:	keccak_i_state									<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
-				default			:	keccak_i_state									<= keccak_i_state                                        ;
+				S_SQUZ_KECCAK	:	keccak_i_state								<= keccak_o_valid ? keccak_o_state : keccak_i_state      ;
+				default			:	keccak_i_state								<= keccak_i_state                                        ;
 			endcase
 		end
 	end

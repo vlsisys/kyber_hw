@@ -261,7 +261,10 @@ module keccakf1600
 		if (!i_rstn) begin
 			lanes_o	<= 0;
 		end else begin
-			lanes_o	<= c_state == S_COMP ? lanes_last : lanes_o;
+			case (c_state)
+				S_COMP	: lanes_o	<= lanes_last;
+				default	: lanes_o	<= lanes_o;
+			endcase
 		end
 	end
 
