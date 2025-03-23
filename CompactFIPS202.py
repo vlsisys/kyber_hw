@@ -9,25 +9,25 @@
 # http://creativecommons.org/publicdomain/zero/1.0/
 
 import os, inspect, bitstring, itertools
-dict_vec = dict()
 
+# def gen_vec(funcName, *vars):
+#     current_frame   = inspect.currentframe()
+#     caller_frame    = inspect.getouterframes(current_frame)[1]
+#     local_vars      = caller_frame.frame.f_locals
+#     for var in vars:
+#         for name, value in local_vars.items():
+#             if value is var:
+#                 print(f'{name:20}: {var}')
+#                 os.system(f'mkdir -p ./vec/{funcName}')
+#                 with open(f'./vec/{funcName}/{name}.vec', 'a') as fh:
+#                     fh.write(hex(var).replace('0x','').rjust(1184,'0')+'\n')
 
 def gen_vec(funcName, *vars):
-    current_frame   = inspect.currentframe()
-    caller_frame    = inspect.getouterframes(current_frame)[1]
-    local_vars      = caller_frame.frame.f_locals
-    for var in vars:
-        for name, value in local_vars.items():
-            if value is var:
-                print(f'{name:10} {var}')
-                if name in dict_vec.keys():
-                    if dict_vec[name] < value:
-                        dict_vec[name] = len(bin(value).replace('0b',''))
-                else:
-                    dict_vec[name] = len(bin(value).replace('0b',''))
-                os.system(f'mkdir -p ./vec/{funcName}')
-                with open(f'./vec/{funcName}/{name}.vec', 'a') as fh:
-                    fh.write(hex(var).replace('0x','').rjust(1184,'0')+'\n')
+    for name, value in vars:
+        print(f'{name:20}: {value}')
+        os.system(f'mkdir -p ./vec/{funcName}')
+        with open(f'./vec/{funcName}/{name}.vec', 'a') as fh:
+            fh.write(hex(value).replace('0x','').rjust(1568*2,'0')+'\n')           
 
 def ROL64(a, n):
     out =  ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
@@ -128,19 +128,19 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
         blockSize = min(len(inputBytes)-inputOffset, rateInBytes)
 
         # HW-ABSB
-        print(f'ABSB  [{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
         k = k+1
         for i in range(blockSize):
             state[i] = state[i] ^ inputBytes[i+inputOffset]
-        
+        print(f'ABSB  [{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
+       
         inputOffset = inputOffset + blockSize
         # HW-ABSB-KECCAK
         if (blockSize == rateInBytes):
-            print(f'ABSB_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
+            print(f'ABSB_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
             state = KeccakF1600(state)
             blockSize = 0
     # === Do the padding and switch to the squeezing phase ===
-    print(f'state:{state.hex()}')
+    #print(f'state:{state.hex()}')
     state[blockSize] = state[blockSize] ^ delimitedSuffix
     #k = 0
     #if (((delimitedSuffix & 0x80) != 0) and (blockSize == (rateInBytes-1))):
@@ -148,19 +148,19 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     #    print(f'Padding[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
     #    k = k+1
     state[rateInBytes-1] = state[rateInBytes-1] ^ 0x80
-    print(f'state:{state.hex()}')
+    print(f'PADD  [{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
     state = KeccakF1600(state)
+    print(f'PADD_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
     # === Squeeze out all the output blocks ===
-    print(f'state:{state.hex()}')
     k = 0
     while(outputByteLen > 0):
         blockSize = min(outputByteLen, rateInBytes)
         outputBytes = outputBytes + state[0:blockSize]
         outputByteLen = outputByteLen - blockSize
-        print(f'SQUZ  [{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
+        print(f'SQUZ  [{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
         k = k+1
         if (outputByteLen > 0):
-            print(f'SQUZ_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}')
+            print(f'SQUZ_K[{k}]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
             state = KeccakF1600(state)
     if i_ibytes_len % 8 == 0:
         i_ibytes = int(int.from_bytes(inputBytes))
@@ -168,7 +168,8 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
         i_ibytes = int(int.from_bytes(inputBytes) << 8*(8 - (i_ibytes_len % 8))) 
     o_obytes = int(int.from_bytes(outputBytes))
     #print(i_ibytes, i_obyte_len, o_bytes)
-    gen_vec('keccak', i_mode, i_ibytes, i_ibytes_len, i_obytes_len, o_obytes)
+    gen_vec('keccak', ('i_mode', i_mode), ('i_ibytes', i_ibytes), ('i_ibytes_len', i_ibytes_len), ('i_obytes_len', i_obytes_len), ('o_obytes', o_obytes))
+    print(f'OBYTES: {outputBytes.hex()}')
     return outputBytes
 
 
