@@ -70,6 +70,22 @@ class PolynomialRing:
             b = sum(list_of_bits[2*i*eta + eta + j] for j in range(eta))
             coefficients[i] = a-b
 
+        """
+        For Test
+        """
+        self.cbd_input_bytes = input_bytes
+        self.cbd_eta = eta
+        self.cbd_coefficients = coefficients
+        self.cbd_list_of_bits = list_of_bits
+        self.cbd_return = self(coefficients, is_ntt=is_ntt)
+
+        print(f'[CBD] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
+        print(f'[CBD] ETA          : {eta}')
+        print(f'[CBD] COEFF        : {coefficients}')
+        print(f'[CBD] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
+        print(f'[CBD] List of Bit  : {list_of_bits}')
+        print(f'[CBD] Return       : {self(coefficients, is_ntt=is_ntt)}')
+
         return self(coefficients, is_ntt=is_ntt)
         
     # Decodes a byte array into a polynomial. 
