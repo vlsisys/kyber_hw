@@ -11,7 +11,7 @@ except ImportError as e:
     print(f"ImportError: {e}\n")
     print("Kyber will work perfectly fine with system randomness")
     
-    
+
 DEFAULT_PARAMETERS = {
     "kyber_512" : {
         "n" : 256, 
