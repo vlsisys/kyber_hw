@@ -14,48 +14,36 @@ module cbd
 	input		[1:0]		i_eta
 );
 
-//coefficients = [0 for _ in range(self.n)]
-//list_of_bits = bytes_to_bits(input_bytes) # Convert 64 bytes to 512 bits
-//for i in range(self.n):
-//	a = sum(list_of_bits[2*i*eta + j]       for j in range(eta))
-//	b = sum(list_of_bits[2*i*eta + eta + j] for j in range(eta))
-//	coefficients[i] = a-b
+	wire		[192*8-1:0]	ibytes;
+	for (genvar i=0; i<192; i=i+1) begin
+		assign	ibytes[192*8-1-8*i-:8]	= {	i_ibytes[192*8-1-8*i-7],
+											i_ibytes[192*8-1-8*i-6],
+											i_ibytes[192*8-1-8*i-5],
+											i_ibytes[192*8-1-8*i-4],
+											i_ibytes[192*8-1-8*i-3],
+											i_ibytes[192*8-1-8*i-2],
+											i_ibytes[192*8-1-8*i-1],
+											i_ibytes[192*8-1-8*i-0]};
+	end
 
-	wire		[192*8-1:0]		ibytes;
-	genvar	i;
-	generate
-		for (i=0; i<192; i=i+1) begin
-			assign	ibytes[192*8-1-8*i-:8]	= {	i_ibytes[192*8-1-8*i-7],
-												i_ibytes[192*8-1-8*i-6],
-												i_ibytes[192*8-1-8*i-5],
-												i_ibytes[192*8-1-8*i-4],
-												i_ibytes[192*8-1-8*i-3],
-												i_ibytes[192*8-1-8*i-2],
-												i_ibytes[192*8-1-8*i-1],
-												i_ibytes[192*8-1-8*i-0]};
-		end
-	endgenerate
-
-	reg			[2:0]			coeffs[0:255];
-	generate
-		for (i=0; i<256; i=i+1) begin
-			always @(*) begin
-				if (i_eta == 2) begin
-					coeffs[i]	=	ibytes[2*i*i_eta         + 0] +
-									ibytes[2*i*i_eta         + 1] -
-									ibytes[2*i*i_eta + i_eta + 0] -
-									ibytes[2*i*i_eta + i_eta + 1];
-				end else begin
-					coeffs[i]	=	ibytes[2*i*i_eta         + 0] +
-									ibytes[2*i*i_eta         + 1] +
-									ibytes[2*i*i_eta         + 2] -
-									ibytes[2*i*i_eta + i_eta + 0] -
-									ibytes[2*i*i_eta + i_eta + 1] -
-									ibytes[2*i*i_eta + i_eta + 2];
-				end
+	reg			[2:0]		coeffs[0:255];
+	for (genvar i=0; i<256; i=i+1) begin
+		always @(*) begin
+			if (i_eta == 2) begin
+				coeffs[i]	=	ibytes[128*8-(2*i*i_eta         + 0)-1] +
+								ibytes[128*8-(2*i*i_eta         + 1)-1] -
+								ibytes[128*8-(2*i*i_eta + i_eta + 0)-1] -
+								ibytes[128*8-(2*i*i_eta + i_eta + 1)-1];
+			end else begin
+				coeffs[i]	=	ibytes[192*8-(2*i*i_eta         + 0)-1] +
+								ibytes[192*8-(2*i*i_eta         + 1)-1] +
+								ibytes[192*8-(2*i*i_eta         + 2)-1] -
+								ibytes[192*8-(2*i*i_eta + i_eta + 0)-1] -
+								ibytes[192*8-(2*i*i_eta + i_eta + 1)-1] -
+								ibytes[192*8-(2*i*i_eta + i_eta + 2)-1];
 			end
 		end
-	endgenerate
+	end
 	
 	assign	o_coeffs =	{	coeffs[  0],
 							coeffs[  1],

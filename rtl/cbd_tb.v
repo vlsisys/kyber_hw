@@ -90,7 +90,6 @@ module cbd_tb;
 
 		for (i=0; i<`SIMCYCLE; i++) begin
 			vecInsert(i);
-			#(1000/`CLKFREQ);
 			vecVerify(i);
 		end
 		#(1000/`CLKFREQ);
@@ -104,6 +103,9 @@ module cbd_tb;
 	initial begin
 		if ($value$plusargs("vcd_file=%s", vcd_file)) begin
 			$dumpfile(vcd_file);
+			for (i=0; i<16; i++) begin
+				$dumpvars(0, u_cbd.coeffs[i]);
+			end
 			$dumpvars;
 		end else begin
 			$dumpfile("cbd_tb.vcd");

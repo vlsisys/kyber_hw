@@ -1,57 +1,21 @@
-WARNING: cbd_tb.v:46: Excess hex digits (192 of '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0104924103afc03f80bf3c03d7200e42e060380081f91c2e16fffff8fb807ff893d708000045040ae09381fc83fff88e092481c7e41001fc8047e791d048f24024ffc204823000040720fe38e79e091cf1812484302091f91ce2000383c7fc0') while reading 768-bit words.
-WARNING: cbd_tb.v:46: $readmemh(../vec/cbd/o_coeffs.vec): Too many words in the file for the requested range [0:49].
-WARNING: cbd_tb.v:47: $readmemh(../vec/cbd/i_ibytes.vec): Too many words in the file for the requested range [0:49].
-WARNING: cbd_tb.v:48: Excess hex digits (383 of '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002') while reading 2-bit words.
-WARNING: cbd_tb.v:48: $readmemh(../vec/cbd/i_eta.vec): Too many words in the file for the requested range [0:49].
+ERROR: cbd_tb.v:46: $readmemh: Unable to open ../vec/cbd/o_coeffs.vec for reading.
+ERROR: cbd_tb.v:47: $readmemh: Unable to open ../vec/cbd/i_ibytes.vec for reading.
+ERROR: cbd_tb.v:48: $readmemh: Unable to open ../vec/cbd/i_eta.vec for reading.
 VCD info: dumpfile ./vcd/cbd.vcd opened for output.
-[Idx:   0] Mismatched o_coeffs
-[Idx:   1] Mismatched o_coeffs
-[Idx:   2] Mismatched o_coeffs
-[Idx:   3] Mismatched o_coeffs
-[Idx:   4] Mismatched o_coeffs
-[Idx:   5] Mismatched o_coeffs
-[Idx:   6] Mismatched o_coeffs
-[Idx:   7] Mismatched o_coeffs
-[Idx:   8] Mismatched o_coeffs
-[Idx:   9] Mismatched o_coeffs
-[Idx:  10] Mismatched o_coeffs
-[Idx:  11] Mismatched o_coeffs
-[Idx:  12] Mismatched o_coeffs
-[Idx:  13] Mismatched o_coeffs
-[Idx:  14] Mismatched o_coeffs
-[Idx:  15] Mismatched o_coeffs
-[Idx:  16] Mismatched o_coeffs
-[Idx:  17] Mismatched o_coeffs
-[Idx:  18] Mismatched o_coeffs
-[Idx:  19] Mismatched o_coeffs
-[Idx:  20] Mismatched o_coeffs
-[Idx:  21] Mismatched o_coeffs
-[Idx:  22] Mismatched o_coeffs
-[Idx:  23] Mismatched o_coeffs
-[Idx:  24] Mismatched o_coeffs
-[Idx:  25] Mismatched o_coeffs
-[Idx:  26] Mismatched o_coeffs
-[Idx:  27] Mismatched o_coeffs
-[Idx:  28] Mismatched o_coeffs
-[Idx:  29] Mismatched o_coeffs
-[Idx:  30] Mismatched o_coeffs
-[Idx:  31] Mismatched o_coeffs
-[Idx:  32] Mismatched o_coeffs
-[Idx:  33] Mismatched o_coeffs
-[Idx:  34] Mismatched o_coeffs
-[Idx:  35] Mismatched o_coeffs
-[Idx:  36] Mismatched o_coeffs
-[Idx:  37] Mismatched o_coeffs
-[Idx:  38] Mismatched o_coeffs
-[Idx:  39] Mismatched o_coeffs
-[Idx:  40] Mismatched o_coeffs
-[Idx:  41] Mismatched o_coeffs
-[Idx:  42] Mismatched o_coeffs
-[Idx:  43] Mismatched o_coeffs
-[Idx:  44] Mismatched o_coeffs
-[Idx:  45] Mismatched o_coeffs
-[Idx:  46] Mismatched o_coeffs
-[Idx:  47] Mismatched o_coeffs
-[Idx:  48] Mismatched o_coeffs
-[Idx:  49] Mismatched o_coeffs
-cbd_tb.v:97: $finish called at 1010000 (1ps)
+VCD warning: array word cbd_tb.u_cbd.coeffs[0] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[1] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[2] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[3] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[4] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[5] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[6] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[7] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[8] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[9] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[10] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[11] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[12] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[13] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[14] will conflict with an escaped identifier.
+VCD warning: array word cbd_tb.u_cbd.coeffs[15] will conflict with an escaped identifier.
+cbd_tb.v:96: $finish called at 350000 (1ps)

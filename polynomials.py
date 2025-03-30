@@ -45,18 +45,38 @@ class PolynomialRing:
         i, j = 0, 0
         coefficients = [0 for _ in range(self.n)]
         while j < self.n:
+            print(f'while loop {j}')
             d1 = input_bytes[i] + 256*(input_bytes[i+1] % 16)
             d2 = (input_bytes[i+1] // 16) + 16*input_bytes[i+2]
             
             if d1 < self.q:
+                print(f'[PARSE - {j, i}] d1 < self.q')
                 coefficients[j] = d1
                 j = j + 1
             
             if d2 < self.q and j < self.n:
+                print(f'[PARSE - {j, i}] d2 < self.q and j < self.n')
                 coefficients[j] = d2
                 j = j + 1
                 
             i = i + 3
+
+        """
+        For Test
+        """
+        self.parse_input_bytes = input_bytes
+        self.parse_coefficients = coefficients
+        self.parse_return = self(coefficients, is_ntt=is_ntt)
+
+        print(f'[PARSE] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
+        print(f'[PARSE] COEFF        : {coefficients}')
+        print(f'[PARSE] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
+        print(f'[PARSE] Return       : {self(coefficients, is_ntt=is_ntt)}')
+
+        #vecDict = dict()
+        #vecDict['i_ibytes'] = int.from_bytes(input_bytes)
+        #vecDict['o_coeffs'] = int(''.join(Bits(int=x, length=3).bin for x in coefficients), 2)
+        #genvec('cbd', vecDict, 192*2)
 
         return self(coefficients, is_ntt=is_ntt)      
 
@@ -87,18 +107,18 @@ class PolynomialRing:
         self.cbd_list_of_bits = list_of_bits
         self.cbd_return = self(coefficients, is_ntt=is_ntt)
 
-        print(f'[CBD] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
-        print(f'[CBD] ETA          : {eta}')
-        print(f'[CBD] COEFF        : {coefficients}')
-        print(f'[CBD] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
-        print(f'[CBD] List of Bit  : {list_of_bits}')
-        print(f'[CBD] Return       : {self(coefficients, is_ntt=is_ntt)}')
+        #print(f'[CBD] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
+        #print(f'[CBD] ETA          : {eta}')
+        #print(f'[CBD] COEFF        : {coefficients}')
+        #print(f'[CBD] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
+        #print(f'[CBD] List of Bit  : {list_of_bits}')
+        #print(f'[CBD] Return       : {self(coefficients, is_ntt=is_ntt)}')
 
-        vecDict = dict()
-        vecDict['i_ibytes'] = int.from_bytes(input_bytes)
-        vecDict['i_eta'] = int(eta)
-        vecDict['o_coeffs'] = int(''.join(Bits(int=x, length=3).bin for x in coefficients), 2)
-        genvec('cbd', vecDict, 192*2)
+        #vecDict = dict()
+        #vecDict['i_ibytes'] = int.from_bytes(input_bytes)
+        #vecDict['i_eta'] = int(eta)
+        #vecDict['o_coeffs'] = int(''.join(Bits(int=x, length=3).bin for x in coefficients), 2)
+        #genvec('cbd', vecDict, 192*2)
 
         return self(coefficients, is_ntt=is_ntt)
         
