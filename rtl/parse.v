@@ -44,7 +44,7 @@ module parse
 	always @(*) begin
 		case(c_state)
 			S_IDLE	: n_state = (i_ibytes_valid)	? S_COMP : S_IDLE;
-			S_COMP	: n_state = (cnt_out == 63)		? S_DONE : S_COMP;
+			S_COMP	: n_state = (cnt_out == 64)		? S_DONE : S_COMP;
 			S_DONE	: n_state = S_IDLE;
 		endcase
 	end
@@ -62,14 +62,6 @@ module parse
 // --------------------------------------------------
 	reg			[6:0]		cnt_in           ; // 768 / 8 = 96
 	reg			[9:0]		cnt_idx          ; // 0 ~ 768
-	reg						ibytes_valid_pre ;
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			ibytes_valid_pre	<= 0;
-		end else begin
-			ibytes_valid_pre	<= i_ibytes_valid;
-		end
-	end
 
 	// Counter for Input Bytes
 	always @(posedge i_clk or negedge i_rstn) begin
@@ -79,7 +71,7 @@ module parse
 
 			case (c_state)
 				S_DONE	: cnt_in 	<= 0;
-				default	: cnt_in 	<= ibytes_valid_pre && (cnt_in < 96) ? cnt_in + 1 : cnt_in;
+				default	: cnt_in 	<= i_ibytes_valid && (cnt_in < 96) ? cnt_in + 1 : cnt_in;
 			endcase
 		end
 	end
@@ -90,7 +82,7 @@ module parse
 			cnt_idx	<= 0;
 		end else begin
 			case (c_state)
-				S_COMP	: cnt_idx	<= cnt_idx + 6;
+				S_COMP	: cnt_idx	<= cnt_loop < 255 ? cnt_idx + 6 : cnt_idx;
 				default	: cnt_idx	<= 0;
 			endcase
 		end
@@ -129,32 +121,28 @@ module parse
 	assign	d2_cond[1] = (d2[1] < `KYBER_CONFIG_Q) && ((cnt_loop + d1_cond[0] + d2_cond[0] + d1_cond[1]) < `KYBER_CONFIG_N)	? 1:0;
 
 	//	Counter for While Loop
-	reg			[2:0]		add_cond;
+	wire		[2:0]		add_cond;
 	reg			[7:0]		cnt_loop;	// 0 ~ 255
 
-	always @(d1_cond[0] or d2_cond[0] or d1_cond[1] or d2_cond[1])begin
-		case (c_state)
-			S_COMP	: add_cond = d1_cond[0] + d2_cond[0] + d1_cond[1] + d2_cond[1];
-			default	: add_cond = 0;
-		endcase
-	end
+	assign	add_cond = d1_cond[0] + d2_cond[0] + d1_cond[1] + d2_cond[1];
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if(!i_rstn) begin
 			cnt_loop	<= 0;
 		end else begin
-			if (cnt_loop < `KYBER_CONFIG_N && c_state == S_COMP) begin
-				case (add_cond)
-					3'd0	: cnt_loop	<= cnt_loop + 0 ;
-					3'd1	: cnt_loop	<= cnt_loop + 1 ;
-					3'd2	: cnt_loop	<= cnt_loop + 2 ;
-					3'd3	: cnt_loop	<= cnt_loop + 3 ;
-					3'd4	: cnt_loop	<= cnt_loop + 4 ;
-					default	: cnt_loop	<= 0            ;
-				endcase
-			end else begin
-				cnt_loop	<= 0;
-			end
+			case (c_state)
+				S_COMP	: begin
+					case (add_cond)
+						3'd0	: cnt_loop	<= (cnt_loop + 0) <= 255 ? cnt_loop + 0 : cnt_loop;
+						3'd1	: cnt_loop	<= (cnt_loop + 1) <= 255 ? cnt_loop + 1 : cnt_loop;
+						3'd2	: cnt_loop	<= (cnt_loop + 2) <= 255 ? cnt_loop + 2 : cnt_loop;
+						3'd3	: cnt_loop	<= (cnt_loop + 3) <= 255 ? cnt_loop + 3 : cnt_loop;
+						3'd4	: cnt_loop	<= (cnt_loop + 4) <= 255 ? cnt_loop + 4 : cnt_loop;
+						default	: cnt_loop	<= cnt_loop;
+					endcase
+				end
+				default	: cnt_loop	<= 0;
+			endcase
 		end
 	end
 
@@ -421,17 +409,17 @@ module parse
 			coeffs[255]	<= 0;
 		end else begin
 			if (c_state == S_COMP) begin
-				coeffs[cnt_loop                                        ]	<= d1_cond[0] ? d1[0] : coeffs[cnt_loop                                        ];
-				coeffs[cnt_loop +                            d1_cond[0]]	<= d2_cond[0] ? d2[0] : coeffs[cnt_loop +                            d1_cond[0]];
-				coeffs[cnt_loop +               d2_cond[0] + d1_cond[0]]	<= d1_cond[1] ? d1[1] : coeffs[cnt_loop +               d2_cond[0] + d1_cond[0]];
-				coeffs[cnt_loop +  d1_cond[1] + d2_cond[0] + d1_cond[0]]	<= d2_cond[1] ? d2[1] : coeffs[cnt_loop +  d1_cond[1] + d2_cond[0] + d1_cond[0]];
+				coeffs[cnt_loop                                       ]	<= d1_cond[0] && (cnt_loop                                       ) <= 255 ? d1[0] : coeffs[cnt_loop                                        ];
+				coeffs[cnt_loop +                           d1_cond[0]]	<= d2_cond[0] && (cnt_loop +                           d1_cond[0]) <= 255 ? d2[0] : coeffs[cnt_loop +                            d1_cond[0]];
+				coeffs[cnt_loop +              d2_cond[0] + d1_cond[0]]	<= d1_cond[1] && (cnt_loop +              d2_cond[0] + d1_cond[0]) <= 255 ? d1[1] : coeffs[cnt_loop +               d2_cond[0] + d1_cond[0]];
+				coeffs[cnt_loop + d1_cond[1] + d2_cond[0] + d1_cond[0]]	<= d2_cond[1] && (cnt_loop + d1_cond[1] + d2_cond[0] + d1_cond[0]) <= 255 ? d2[1] : coeffs[cnt_loop +  d1_cond[1] + d2_cond[0] + d1_cond[0]];
 			end
 		end
 	end
 
 	// Output Coefficients
 	reg			[2:0]		acc_cond;
-	reg			[5:0]		cnt_out;
+	reg			[6:0]		cnt_out;
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
 			acc_cond		<= 0;
@@ -471,8 +459,7 @@ module parse
 	end
 
 	wire		[12*256-1:0]	dbug_o_coeffs;
-	assign	dbug_o_coeffs = {
-								coeffs[  0],
+	assign	dbug_o_coeffs = {	coeffs[  0],
 								coeffs[  1],
 								coeffs[  2],
 								coeffs[  3],

@@ -75,7 +75,7 @@ class PolynomialRing:
 
         vecDict = dict()
         vecDict['i_ibytes'] = int.from_bytes(input_bytes)
-        vecDict['o_coeffs'] = int(''.join(Bits(int=x, length=13).bin for x in coefficients), 2)
+        vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in coefficients), 2)
         genvec('parse', vecDict, 768*2)
 
         return self(coefficients, is_ntt=is_ntt)      

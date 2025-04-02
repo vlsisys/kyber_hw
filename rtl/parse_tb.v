@@ -57,8 +57,8 @@ module parse_tb;
 // --------------------------------------------------
 //	Test Vector Configuration
 // --------------------------------------------------
-	reg		[4*12-1:0]	vo_coeffs[0:`NVEC-1];
-	reg		[768*8-1:0]	vi_ibytes[0:`NVEC-1];
+	reg		[256*12-1:0]	vo_coeffs[0:`NVEC-1];
+	reg		[ 768*8-1:0]	vi_ibytes[0:`NVEC-1];
 
 	initial begin
 		$readmemh("../vec/parse/o_coeffs.vec",			vo_coeffs       ) ;
@@ -76,7 +76,7 @@ module parse_tb;
 			taskState		= "Init";
 			i_ibytes			= 0;
 			i_ibytes_valid		= 0;
-			i_clk				= 1;
+			i_clk				= 0;
 			i_rstn				= 0;
 		end
 	endtask
@@ -95,7 +95,7 @@ module parse_tb;
 		input	[$clog2(`NVEC)-1:0]	i;
 		begin
 			$sformat(taskState,	"VEC[%3d]", i);
-			@(posedge i_clk) begin
+			@(negedge i_clk) begin
 				i_ibytes_valid	= 1;
 			end
 		end
@@ -105,8 +105,8 @@ module parse_tb;
 		input	[$clog2(`NVEC)-1:0]	i;
 		begin
 			#(0.1*1000/`CLKFREQ);
-			if (o_coeffs != vo_coeffs[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
-			if (o_coeffs != vo_coeffs[i]) begin err++; end
+			if (u_parse.dbug_o_coeffs != vo_coeffs[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
+			if (u_parse.dbug_o_coeffs != vo_coeffs[i]) begin err++; end
 			#(0.9*1000/`CLKFREQ);
 		end
 	endtask
@@ -123,8 +123,8 @@ module parse_tb;
 			vecInsert(i);
 			@(negedge o_done) begin
 				i_ibytes_valid	= 0;
-				#(8000/`CLKFREQ);
 				vecVerify(i);
+				#(8000/`CLKFREQ);
 			end
 		end
 		#(1000/`CLKFREQ);
@@ -146,6 +146,7 @@ module parse_tb;
 			$dumpvars(0, u_parse.d1_cond[1]);
 			$dumpvars(0, u_parse.d2_cond[0]);
 			$dumpvars(0, u_parse.d2_cond[1]);
+			$dumpvars(0, vo_coeffs[0]);
 			for (i=0; i<256; i=i+1) begin
 				$dumpvars(0, u_parse.coeffs[i]);
 			end
