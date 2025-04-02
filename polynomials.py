@@ -50,12 +50,12 @@ class PolynomialRing:
             d2 = (input_bytes[i+1] // 16) + 16*input_bytes[i+2]
             
             if d1 < self.q:
-                print(f'[PARSE - {j, i}] d1 < self.q')
+                print(f'[PARSE - {j, i}] d1: {d1}')
                 coefficients[j] = d1
                 j = j + 1
             
             if d2 < self.q and j < self.n:
-                print(f'[PARSE - {j, i}] d2 < self.q and j < self.n')
+                print(f'[PARSE - {j, i}] d2: {d2}')
                 coefficients[j] = d2
                 j = j + 1
                 
@@ -73,10 +73,10 @@ class PolynomialRing:
         print(f'[PARSE] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
         print(f'[PARSE] Return       : {self(coefficients, is_ntt=is_ntt)}')
 
-        #vecDict = dict()
-        #vecDict['i_ibytes'] = int.from_bytes(input_bytes)
-        #vecDict['o_coeffs'] = int(''.join(Bits(int=x, length=3).bin for x in coefficients), 2)
-        #genvec('cbd', vecDict, 192*2)
+        vecDict = dict()
+        vecDict['i_ibytes'] = int.from_bytes(input_bytes)
+        vecDict['o_coeffs'] = int(''.join(Bits(int=x, length=13).bin for x in coefficients), 2)
+        genvec('parse', vecDict, 768*2)
 
         return self(coefficients, is_ntt=is_ntt)      
 

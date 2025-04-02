@@ -9,9 +9,10 @@
 
 module parse
 (	
-	output reg	[4*12-1:0]	o_coeffs,			// 3329 (12bit) x 256
+	output reg	[4*12-1:0]	o_coeffs,
 	output reg				o_coeffs_valid,
-	input		[    63:0]	i_ibytes,			// Total 768 Bytes
+	output reg				o_done,
+	input		[    63:0]	i_ibytes,
 	input					i_ibytes_valid,
 	input					i_clk,
 	input					i_rstn
@@ -24,14 +25,17 @@ module parse
 	localparam	S_COMP		= 2'd1  ;
 	localparam	S_DONE		= 2'd2  ;
 
+	reg			[1:0]		p_state;
 	reg			[1:0]		c_state;
 	reg			[1:0]		n_state;
 
 	// State Register
 	always @(posedge i_clk or negedge i_rstn) begin
 		if(!i_rstn) begin
+			p_state	<= S_IDLE;
 			c_state	<= S_IDLE;
 		end else begin
+			p_state	<= c_state;
 			c_state	<= n_state;
 		end
 	end
@@ -39,29 +43,56 @@ module parse
 	// Next State Logic
 	always @(*) begin
 		case(c_state)
-			S_IDLE	: n_state = (i_ibytes_valid)  ? S_COMP : S_IDLE;
-			S_COMP	: n_state = (cnt_loop == 255) ? S_DONE : S_COMP;
+			S_IDLE	: n_state = (i_ibytes_valid)	? S_COMP : S_IDLE;
+			S_COMP	: n_state = (cnt_out == 63)		? S_DONE : S_COMP;
 			S_DONE	: n_state = S_IDLE;
 		endcase
 	end
 
-	reg			[7:0]		cnt_loop;	// 0 ~ 255
-	reg			[9:0]		cnt_i;		// 0 ~ 768
-	reg			[6:0]		cnt_in;		// 768 / 8 = 96
+	// Output Logic
+	always @(*) begin
+		case(c_state)
+			S_DONE	: o_done	= 1;
+			default	: o_done	= 0;
+		endcase
+	end
 
 // --------------------------------------------------
 //	Counters for Control
 // --------------------------------------------------
+	reg			[6:0]		cnt_in           ; // 768 / 8 = 96
+	reg			[9:0]		cnt_idx          ; // 0 ~ 768
+	reg						ibytes_valid_pre ;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			ibytes_valid_pre	<= 0;
+		end else begin
+			ibytes_valid_pre	<= i_ibytes_valid;
+		end
+	end
+
 	// Counter for Input Bytes
 	always @(posedge i_clk or negedge i_rstn) begin
 		if(!i_rstn) begin
 			cnt_in	<= 0;
 		end else begin
-			if (i_ibytes_valid && cnt_in < 96) begin
-				cnt_in	<= cnt_in + 1 ;
-			end else begin
-				cnt_in	<= (c_state == S_DONE)? 0 : cnt_in;
-			end
+
+			case (c_state)
+				S_DONE	: cnt_in 	<= 0;
+				default	: cnt_in 	<= ibytes_valid_pre && (cnt_in < 96) ? cnt_in + 1 : cnt_in;
+			endcase
+		end
+	end
+
+	// Counter for Index of Input Bytes
+	always @(posedge i_clk or negedge i_rstn) begin
+		if(!i_rstn) begin
+			cnt_idx	<= 0;
+		end else begin
+			case (c_state)
+				S_COMP	: cnt_idx	<= cnt_idx + 6;
+				default	: cnt_idx	<= 0;
+			endcase
 		end
 	end
 
@@ -69,10 +100,13 @@ module parse
 	reg			[768*8-1:0]		ibytes;
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
-			ibytes							<= 0;
+			ibytes	<= 0;
 		end else begin
-			ibytes[768*8-1-8*cnt_in-:64]	<= i_ibytes;
-			
+			if (i_ibytes_valid) begin
+				ibytes[768*8-1-(64*cnt_in)-:64]	<= i_ibytes;
+			end else begin
+				ibytes	<= ibytes;
+			end
 		end
 	end
 
@@ -82,32 +116,35 @@ module parse
 	wire					d1_cond[0:1];
 	wire					d2_cond[0:1];
 
-	always @(posedge i_clk or negedge i_rstn) begin
-		if(!i_rstn) begin
-			d1[0] <= 0                                                         ;
-			d2[0] <= 0                                                         ;
-			d1[1] <= 0                                                         ;
-			d2[1] <= 0                                                         ;
-		end else begin
-			d1[0] <= ibytes[768*8-8*((cnt_i+0)  )-1-:8]			+ 256*(ibytes[768*8-8*((cnt_i+0)+1)-1-:8]%16);
-			d2[0] <= ibytes[768*8-8*((cnt_i+0)+1)-1-:8] >> 4	+  16*(ibytes[768*8-8*((cnt_i+0)+2)-1-:8]   );
-			d1[0] <= ibytes[768*8-8*((cnt_i+3)  )-1-:8]			+ 256*(ibytes[768*8-8*((cnt_i+3)+1)-1-:8]%16);
-			d2[0] <= ibytes[768*8-8*((cnt_i+3)+1)-1-:8] >> 4	+  16*(ibytes[768*8-8*((cnt_i+3)+2)-1-:8]   );
-		end
+	always @(*) begin
+		d1[0] = (ibytes[768*8-8*((cnt_idx+0)  )-1-:8]		) + 256*(ibytes[768*8-8*((cnt_idx+0)+1)-1-:8]%16);
+		d2[0] = (ibytes[768*8-8*((cnt_idx+0)+1)-1-:8] >> 4	) +  16*(ibytes[768*8-8*((cnt_idx+0)+2)-1-:8]   );
+		d1[1] = (ibytes[768*8-8*((cnt_idx+3)  )-1-:8]		) + 256*(ibytes[768*8-8*((cnt_idx+3)+1)-1-:8]%16);
+		d2[1] = (ibytes[768*8-8*((cnt_idx+3)+1)-1-:8] >> 4	) +  16*(ibytes[768*8-8*((cnt_idx+3)+2)-1-:8]   );
 	end
 
-	assign	d1_cond[0] = (d1[0] < `KYBER_CONFIG_Q)														? 1:0;
-	assign	d2_cond[0] = (d2[0] < `KYBER_CONFIG_Q) && (cnt_loop + d1_cond[0])							? 1:0;
-	assign	d1_cond[1] = (d1[1] < `KYBER_CONFIG_Q)														? 1:0;
-	assign	d2_cond[1] = (d2[1] < `KYBER_CONFIG_Q) && (cnt_loop + d1_cond[0] + d2_cond[0] + d1_cond[1])	? 1:0;
+	assign	d1_cond[0] = (d1[0] < `KYBER_CONFIG_Q)																			? 1:0;
+	assign	d2_cond[0] = (d2[0] < `KYBER_CONFIG_Q) && ((cnt_loop + d1_cond[0])							 < `KYBER_CONFIG_N)	? 1:0;
+	assign	d1_cond[1] = (d1[1] < `KYBER_CONFIG_Q)																			? 1:0;
+	assign	d2_cond[1] = (d2[1] < `KYBER_CONFIG_Q) && ((cnt_loop + d1_cond[0] + d2_cond[0] + d1_cond[1]) < `KYBER_CONFIG_N)	? 1:0;
 
 	//	Counter for While Loop
+	reg			[2:0]		add_cond;
+	reg			[7:0]		cnt_loop;	// 0 ~ 255
+
+	always @(d1_cond[0] or d2_cond[0] or d1_cond[1] or d2_cond[1])begin
+		case (c_state)
+			S_COMP	: add_cond = d1_cond[0] + d2_cond[0] + d1_cond[1] + d2_cond[1];
+			default	: add_cond = 0;
+		endcase
+	end
+
 	always @(posedge i_clk or negedge i_rstn) begin
 		if(!i_rstn) begin
 			cnt_loop	<= 0;
 		end else begin
 			if (cnt_loop < `KYBER_CONFIG_N && c_state == S_COMP) begin
-				case (d1_cond[0] + d2_cond[0] + d1_cond[1] + d2_cond[1])
+				case (add_cond)
 					3'd0	: cnt_loop	<= cnt_loop + 0 ;
 					3'd1	: cnt_loop	<= cnt_loop + 1 ;
 					3'd2	: cnt_loop	<= cnt_loop + 2 ;
@@ -121,8 +158,9 @@ module parse
 		end
 	end
 
-	// Coefficients
-	reg			[11:0]		coeffs[0:255];
+	// Coefficients Buffer
+	reg			[11:0]		coeffs[0:255] ;
+
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
 			coeffs[  0]	<= 0;
@@ -382,20 +420,314 @@ module parse
 			coeffs[254]	<= 0;
 			coeffs[255]	<= 0;
 		end else begin
-			coeffs[cnt_loop                                        ]	<= d1_cond[0] ? d1[0] : coeffs[cnt_loop                                        ];
-			coeffs[cnt_loop +                            d1_cond[0]]	<= d2_cond[0] ? d2[0] : coeffs[cnt_loop +                            d1_cond[0]];
-			coeffs[cnt_loop +               d2_cond[0] + d1_cond[0]]	<= d1_cond[1] ? d1[1] : coeffs[cnt_loop +               d2_cond[0] + d1_cond[0]];
-			coeffs[cnt_loop +  d1_cond[1] + d2_cond[0] + d1_cond[0]]	<= d2_cond[1] ? d2[1] : coeffs[cnt_loop +  d1_cond[1] + d2_cond[0] + d1_cond[0]];
+			if (c_state == S_COMP) begin
+				coeffs[cnt_loop                                        ]	<= d1_cond[0] ? d1[0] : coeffs[cnt_loop                                        ];
+				coeffs[cnt_loop +                            d1_cond[0]]	<= d2_cond[0] ? d2[0] : coeffs[cnt_loop +                            d1_cond[0]];
+				coeffs[cnt_loop +               d2_cond[0] + d1_cond[0]]	<= d1_cond[1] ? d1[1] : coeffs[cnt_loop +               d2_cond[0] + d1_cond[0]];
+				coeffs[cnt_loop +  d1_cond[1] + d2_cond[0] + d1_cond[0]]	<= d2_cond[1] ? d2[1] : coeffs[cnt_loop +  d1_cond[1] + d2_cond[0] + d1_cond[0]];
+			end
 		end
 	end
 
 	// Output Coefficients
+	reg			[2:0]		acc_cond;
+	reg			[5:0]		cnt_out;
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
-			o_coeffs	<= 0;
+			acc_cond		<= 0;
+			cnt_out			<= 0;
+			o_coeffs		<= 0;
+			o_coeffs_valid	<= 0;
 		end else begin
-			
+			if (c_state == S_COMP) begin
+				if ((acc_cond) >= 4) begin
+					acc_cond		<= acc_cond + add_cond - 4;
+					cnt_out			<= cnt_out + 1;
+					o_coeffs		<= {coeffs[4*cnt_out+0], coeffs[4*cnt_out+1], coeffs[4*cnt_out+2], coeffs[4*cnt_out+3]};
+					o_coeffs_valid	<= 1;
+				end else begin
+					acc_cond		<= acc_cond + add_cond;
+					cnt_out			<= cnt_out;
+					o_coeffs		<= o_coeffs;
+					o_coeffs_valid	<= 0;
+				end
+			end else begin
+				acc_cond		<= 0;
+				cnt_out			<= 0;
+				o_coeffs		<= 0;
+				o_coeffs_valid	<= 0;
+			end
 		end
 	end
+
+	`ifdef DEBUG
+	reg			[127:0]			ASCII_C_STATE;
+	always @(*) begin
+		case (c_state)
+			S_IDLE	: ASCII_C_STATE = "IDLE";
+			S_COMP	: ASCII_C_STATE = "COMP";
+			S_DONE	: ASCII_C_STATE = "DONE";
+		endcase
+	end
+
+	wire		[12*256-1:0]	dbug_o_coeffs;
+	assign	dbug_o_coeffs = {
+								coeffs[  0],
+								coeffs[  1],
+								coeffs[  2],
+								coeffs[  3],
+								coeffs[  4],
+								coeffs[  5],
+								coeffs[  6],
+								coeffs[  7],
+								coeffs[  8],
+								coeffs[  9],
+								coeffs[ 10],
+								coeffs[ 11],
+								coeffs[ 12],
+								coeffs[ 13],
+								coeffs[ 14],
+								coeffs[ 15],
+								coeffs[ 16],
+								coeffs[ 17],
+								coeffs[ 18],
+								coeffs[ 19],
+								coeffs[ 20],
+								coeffs[ 21],
+								coeffs[ 22],
+								coeffs[ 23],
+								coeffs[ 24],
+								coeffs[ 25],
+								coeffs[ 26],
+								coeffs[ 27],
+								coeffs[ 28],
+								coeffs[ 29],
+								coeffs[ 30],
+								coeffs[ 31],
+								coeffs[ 32],
+								coeffs[ 33],
+								coeffs[ 34],
+								coeffs[ 35],
+								coeffs[ 36],
+								coeffs[ 37],
+								coeffs[ 38],
+								coeffs[ 39],
+								coeffs[ 40],
+								coeffs[ 41],
+								coeffs[ 42],
+								coeffs[ 43],
+								coeffs[ 44],
+								coeffs[ 45],
+								coeffs[ 46],
+								coeffs[ 47],
+								coeffs[ 48],
+								coeffs[ 49],
+								coeffs[ 50],
+								coeffs[ 51],
+								coeffs[ 52],
+								coeffs[ 53],
+								coeffs[ 54],
+								coeffs[ 55],
+								coeffs[ 56],
+								coeffs[ 57],
+								coeffs[ 58],
+								coeffs[ 59],
+								coeffs[ 60],
+								coeffs[ 61],
+								coeffs[ 62],
+								coeffs[ 63],
+								coeffs[ 64],
+								coeffs[ 65],
+								coeffs[ 66],
+								coeffs[ 67],
+								coeffs[ 68],
+								coeffs[ 69],
+								coeffs[ 70],
+								coeffs[ 71],
+								coeffs[ 72],
+								coeffs[ 73],
+								coeffs[ 74],
+								coeffs[ 75],
+								coeffs[ 76],
+								coeffs[ 77],
+								coeffs[ 78],
+								coeffs[ 79],
+								coeffs[ 80],
+								coeffs[ 81],
+								coeffs[ 82],
+								coeffs[ 83],
+								coeffs[ 84],
+								coeffs[ 85],
+								coeffs[ 86],
+								coeffs[ 87],
+								coeffs[ 88],
+								coeffs[ 89],
+								coeffs[ 90],
+								coeffs[ 91],
+								coeffs[ 92],
+								coeffs[ 93],
+								coeffs[ 94],
+								coeffs[ 95],
+								coeffs[ 96],
+								coeffs[ 97],
+								coeffs[ 98],
+								coeffs[ 99],
+								coeffs[100],
+								coeffs[101],
+								coeffs[102],
+								coeffs[103],
+								coeffs[104],
+								coeffs[105],
+								coeffs[106],
+								coeffs[107],
+								coeffs[108],
+								coeffs[109],
+								coeffs[110],
+								coeffs[111],
+								coeffs[112],
+								coeffs[113],
+								coeffs[114],
+								coeffs[115],
+								coeffs[116],
+								coeffs[117],
+								coeffs[118],
+								coeffs[119],
+								coeffs[120],
+								coeffs[121],
+								coeffs[122],
+								coeffs[123],
+								coeffs[124],
+								coeffs[125],
+								coeffs[126],
+								coeffs[127],
+								coeffs[128],
+								coeffs[129],
+								coeffs[130],
+								coeffs[131],
+								coeffs[132],
+								coeffs[133],
+								coeffs[134],
+								coeffs[135],
+								coeffs[136],
+								coeffs[137],
+								coeffs[138],
+								coeffs[139],
+								coeffs[140],
+								coeffs[141],
+								coeffs[142],
+								coeffs[143],
+								coeffs[144],
+								coeffs[145],
+								coeffs[146],
+								coeffs[147],
+								coeffs[148],
+								coeffs[149],
+								coeffs[150],
+								coeffs[151],
+								coeffs[152],
+								coeffs[153],
+								coeffs[154],
+								coeffs[155],
+								coeffs[156],
+								coeffs[157],
+								coeffs[158],
+								coeffs[159],
+								coeffs[160],
+								coeffs[161],
+								coeffs[162],
+								coeffs[163],
+								coeffs[164],
+								coeffs[165],
+								coeffs[166],
+								coeffs[167],
+								coeffs[168],
+								coeffs[169],
+								coeffs[170],
+								coeffs[171],
+								coeffs[172],
+								coeffs[173],
+								coeffs[174],
+								coeffs[175],
+								coeffs[176],
+								coeffs[177],
+								coeffs[178],
+								coeffs[179],
+								coeffs[180],
+								coeffs[181],
+								coeffs[182],
+								coeffs[183],
+								coeffs[184],
+								coeffs[185],
+								coeffs[186],
+								coeffs[187],
+								coeffs[188],
+								coeffs[189],
+								coeffs[190],
+								coeffs[191],
+								coeffs[192],
+								coeffs[193],
+								coeffs[194],
+								coeffs[195],
+								coeffs[196],
+								coeffs[197],
+								coeffs[198],
+								coeffs[199],
+								coeffs[200],
+								coeffs[201],
+								coeffs[202],
+								coeffs[203],
+								coeffs[204],
+								coeffs[205],
+								coeffs[206],
+								coeffs[207],
+								coeffs[208],
+								coeffs[209],
+								coeffs[210],
+								coeffs[211],
+								coeffs[212],
+								coeffs[213],
+								coeffs[214],
+								coeffs[215],
+								coeffs[216],
+								coeffs[217],
+								coeffs[218],
+								coeffs[219],
+								coeffs[220],
+								coeffs[221],
+								coeffs[222],
+								coeffs[223],
+								coeffs[224],
+								coeffs[225],
+								coeffs[226],
+								coeffs[227],
+								coeffs[228],
+								coeffs[229],
+								coeffs[230],
+								coeffs[231],
+								coeffs[232],
+								coeffs[233],
+								coeffs[234],
+								coeffs[235],
+								coeffs[236],
+								coeffs[237],
+								coeffs[238],
+								coeffs[239],
+								coeffs[240],
+								coeffs[241],
+								coeffs[242],
+								coeffs[243],
+								coeffs[244],
+								coeffs[245],
+								coeffs[246],
+								coeffs[247],
+								coeffs[248],
+								coeffs[249],
+								coeffs[250],
+								coeffs[251],
+								coeffs[252],
+								coeffs[253],
+								coeffs[254],
+								coeffs[255]};
+	`endif
 
 endmodule
