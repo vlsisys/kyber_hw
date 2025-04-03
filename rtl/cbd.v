@@ -9,21 +9,95 @@
 
 module cbd
 (	
-	output 		[256*3-1:0]	o_coeffs,
-	input		[192*8-1:0]	i_ibytes,
-	input		[1:0]		i_eta
+	output 		[47:0]		o_coeffs,
+	output 					o_coeffs_valid,
+	output					o_done,
+	input		[63:0]		i_ibytes,
+	input					i_ibytes_valid,
+	input		[1:0]		i_eta,
+	input					i_clk,
+	input					i_rstn
 );
+//	coefficients = [0 for _ in range(self.n)]
+//	list_of_bits = bytes_to_bits(input_bytes) # Convert 64 bytes to 512 bits
+//	for i in range(self.n):
+//		a = sum(list_of_bits[2*i*eta + j]       for j in range(eta))
+//		b = sum(list_of_bits[2*i*eta + eta + j] for j in range(eta))
+//		coefficients[i] = a-b
+// --------------------------------------------------
+//		max index: 
+//			eta == 2 : 4*i + 3 = 3,  7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63
+//			eta == 3 : 6*i + 5 = 5, 11, 17, 23, 29, 35, 41, 47, 53, 59
 
-	wire		[192*8-1:0]	ibytes;
-	for (genvar i=0; i<192; i=i+1) begin
-		assign	ibytes[192*8-1-8*i-:8]	= {	i_ibytes[192*8-1-8*i-7],
-											i_ibytes[192*8-1-8*i-6],
-											i_ibytes[192*8-1-8*i-5],
-											i_ibytes[192*8-1-8*i-4],
-											i_ibytes[192*8-1-8*i-3],
-											i_ibytes[192*8-1-8*i-2],
-											i_ibytes[192*8-1-8*i-1],
-											i_ibytes[192*8-1-8*i-0]};
+	wire		[7:0]		ibytes_len;
+	assign					ibytes_len = (i_eta == 2) ? 128 : 192;
+// --------------------------------------------------
+//	FSM
+// --------------------------------------------------
+	localparam	S_IDLE		= 2'd0  ;
+	localparam	S_COMP		= 2'd1  ;
+	localparam	S_DONE		= 2'd2  ;
+
+	reg			[1:0]		p_state;
+	reg			[1:0]		c_state;
+	reg			[1:0]		n_state;
+
+	// State Register
+	always @(posedge i_clk or negedge i_rstn) begin
+		if(!i_rstn) begin
+			p_state	<= S_IDLE;
+			c_state	<= S_IDLE;
+		end else begin
+			p_state	<= c_state;
+			c_state	<= n_state;
+		end
+	end
+
+	// Next State Logic
+	always @(*) begin
+		case(c_state)
+			S_IDLE	: n_state = (i_ibytes_valid)	? S_COMP : S_IDLE;
+			S_COMP	: n_state = (cnt_out == 63)		? S_DONE : S_COMP;
+			S_DONE	: n_state = S_IDLE;
+		endcase
+	end
+
+	// Output Logic
+	always @(*) begin
+		case(c_state)
+			S_DONE	: o_done	= 1;
+			default	: o_done	= 0;
+		endcase
+	end
+
+// --------------------------------------------------
+//	Input Byte With Byte-Wise Reversed Order
+// --------------------------------------------------
+	wire		[63:0]		ibytes_bytewise_rev;
+	for (genvar i=0; i<8; i=i+1) begin
+		assign	ibytes_bytewise_rev[64-1-8*i-:8] = {
+					i_ibytes[64-1-8*i-7],
+					i_ibytes[64-1-8*i-6],
+					i_ibytes[64-1-8*i-5],
+					i_ibytes[64-1-8*i-4],
+					i_ibytes[64-1-8*i-3],
+					i_ibytes[64-1-8*i-2],
+					i_ibytes[64-1-8*i-1],
+					i_ibytes[64-1-8*i-0]
+		};
+	end
+
+
+	reg			[192*8-1:0]	ibytes;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			ibytes	<= 0;
+		end else begin
+			case (c_state)
+				S_IDLE	: ibytes	<= 0;
+				S_COMP	: ibytes	<= 0;
+			endcase
+		end
 	end
 
 	reg			[2:0]		coeffs[0:255];
