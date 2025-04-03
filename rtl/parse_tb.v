@@ -10,7 +10,7 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		10		// # of Test Vector
+`define NVEC		80		// # of Test Vector
 `define FINISH		10000	// # of Test Vector
 `define DEBUG
 
