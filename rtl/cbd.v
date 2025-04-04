@@ -9,9 +9,9 @@
 
 module cbd
 (	
-	output 		[47:0]		o_coeffs,
-	output 					o_coeffs_valid,
-	output					o_done,
+	output reg	[47:0]		o_coeffs,
+	output reg				o_coeffs_valid,
+	output reg				o_done,
 	input		[63:0]		i_ibytes,
 	input					i_ibytes_valid,
 	input		[1:0]		i_eta,
@@ -34,21 +34,21 @@ module cbd
 // --------------------------------------------------
 //	FSM
 // --------------------------------------------------
-	localparam	S_IDLE		= 2'd0  ;
-	localparam	S_COMP		= 2'd1  ;
-	localparam	S_DONE		= 2'd2  ;
+	localparam	S_IDLE		= 3'd0  ;
+	localparam	S_ETA2		= 3'd1  ;
+	localparam	S_ETA3_0	= 3'd2  ;
+	localparam	S_ETA3_1	= 3'd3  ;
+	localparam	S_ETA3_2	= 3'd4  ;
+	localparam	S_DONE		= 3'd5  ;
 
-	reg			[1:0]		p_state;
 	reg			[1:0]		c_state;
 	reg			[1:0]		n_state;
 
 	// State Register
 	always @(posedge i_clk or negedge i_rstn) begin
 		if(!i_rstn) begin
-			p_state	<= S_IDLE;
 			c_state	<= S_IDLE;
 		end else begin
-			p_state	<= c_state;
 			c_state	<= n_state;
 		end
 	end
@@ -56,9 +56,14 @@ module cbd
 	// Next State Logic
 	always @(*) begin
 		case(c_state)
-			S_IDLE	: n_state = (i_ibytes_valid)	? S_COMP : S_IDLE;
-			S_COMP	: n_state = (cnt_out == 63)		? S_DONE : S_COMP;
-			S_DONE	: n_state = S_IDLE;
+			S_IDLE		: n_state = (i_ibytes_valid && i_eta == 2)	? S_ETA2	: 
+									(i_ibytes_valid && i_eta == 3)	? S_ETA3_0	: S_IDLE;
+			S_ETA2		: n_state = (cnt_o == 15)					? S_DONE	: S_ETA2;
+			S_ETA3_0	: n_state = S_ETA3_1;
+			S_ETA3_1	: n_state = S_ETA3_2;
+			S_ETA3_2	: n_state = (cnt_o == 15)					? S_DONE	: S_ETA3_0;
+			S_DONE		: n_state = S_IDLE;
+			default		: n_state = S_IDLE;
 		endcase
 	end
 
@@ -69,13 +74,36 @@ module cbd
 			default	: o_done	= 0;
 		endcase
 	end
+// --------------------------------------------------
+//	Output Coefficients Counter
+// --------------------------------------------------
+	reg			[3:0]		cnt_o;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			cnt_o			<= 0;
+			o_coeffs_valid	<= 0;
+		end else begin
+			case (c_state)
+				S_ETA2		,
+				S_ETA3_1	,
+				S_ETA3_2	: begin
+					cnt_o			<= cnt_o + 1;
+					o_coeffs_valid	<= 1;
+				end
+				default		: begin
+					cnt_o			<= 0;
+					o_coeffs_valid	<= 0;
+				end
+			endcase
+		end
+	end
 
 // --------------------------------------------------
 //	Input Byte With Byte-Wise Reversed Order
 // --------------------------------------------------
-	wire		[63:0]		ibytes_bytewise_rev;
+	wire		[63:0]		ibytes_bwr;	
 	for (genvar i=0; i<8; i=i+1) begin
-		assign	ibytes_bytewise_rev[64-1-8*i-:8] = {
+		assign	ibytes_bwr[64-1-8*i-:8] = {
 					i_ibytes[64-1-8*i-7],
 					i_ibytes[64-1-8*i-6],
 					i_ibytes[64-1-8*i-5],
@@ -87,293 +115,89 @@ module cbd
 		};
 	end
 
-
-	reg			[192*8-1:0]	ibytes;
+	// Input Byte Register
+	reg			[63:0]		ibytes_reg;
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
-			ibytes	<= 0;
+			ibytes_reg	<= 0;
 		end else begin
 			case (c_state)
-				S_IDLE	: ibytes	<= 0;
-				S_COMP	: ibytes	<= 0;
+				S_ETA3_0	: ibytes_reg		<= ibytes_bwr       ;
+				S_ETA3_1	: ibytes_reg[31:0]	<= ibytes_bwr[31:0] ;
+				default		: ibytes_reg		<= ibytes_reg       ;
 			endcase
 		end
 	end
 
-	reg			[2:0]		coeffs[0:255];
-	for (genvar i=0; i<256; i=i+1) begin
-		always @(*) begin
-			if (i_eta == 2) begin
-				coeffs[i]	=	ibytes[128*8-(2*i*i_eta         + 0)-1] +
-								ibytes[128*8-(2*i*i_eta         + 1)-1] -
-								ibytes[128*8-(2*i*i_eta + i_eta + 0)-1] -
-								ibytes[128*8-(2*i*i_eta + i_eta + 1)-1];
-			end else begin
-				coeffs[i]	=	ibytes[192*8-(2*i*i_eta         + 0)-1] +
-								ibytes[192*8-(2*i*i_eta         + 1)-1] +
-								ibytes[192*8-(2*i*i_eta         + 2)-1] -
-								ibytes[192*8-(2*i*i_eta + i_eta + 0)-1] -
-								ibytes[192*8-(2*i*i_eta + i_eta + 1)-1] -
-								ibytes[192*8-(2*i*i_eta + i_eta + 2)-1];
-			end
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			o_coeffs	<= 0;
+		end else begin
+			case (c_state)
+				S_ETA2		: begin
+					o_coeffs[48-1-3* 0-:3]	<=	ibytes_bwr[63] + ibytes_bwr[62] - ibytes_bwr[61] - ibytes_bwr[60];
+					o_coeffs[48-1-3* 1-:3]	<=	ibytes_bwr[59] + ibytes_bwr[58] - ibytes_bwr[57] - ibytes_bwr[56];
+					o_coeffs[48-1-3* 2-:3]	<=	ibytes_bwr[55] + ibytes_bwr[54] - ibytes_bwr[53] - ibytes_bwr[52];
+					o_coeffs[48-1-3* 3-:3]	<=	ibytes_bwr[51] + ibytes_bwr[50] - ibytes_bwr[49] - ibytes_bwr[48];
+					o_coeffs[48-1-3* 4-:3]	<=	ibytes_bwr[47] + ibytes_bwr[46] - ibytes_bwr[45] - ibytes_bwr[44];
+					o_coeffs[48-1-3* 5-:3]	<=	ibytes_bwr[43] + ibytes_bwr[42] - ibytes_bwr[41] - ibytes_bwr[40];
+					o_coeffs[48-1-3* 6-:3]	<=	ibytes_bwr[39] + ibytes_bwr[38] - ibytes_bwr[37] - ibytes_bwr[36];
+					o_coeffs[48-1-3* 7-:3]	<=	ibytes_bwr[35] + ibytes_bwr[34] - ibytes_bwr[33] - ibytes_bwr[32];
+					o_coeffs[48-1-3* 8-:3]	<=	ibytes_bwr[31] + ibytes_bwr[30] - ibytes_bwr[29] - ibytes_bwr[28];
+					o_coeffs[48-1-3* 9-:3]	<=	ibytes_bwr[27] + ibytes_bwr[26] - ibytes_bwr[25] - ibytes_bwr[24];
+					o_coeffs[48-1-3*10-:3]	<=	ibytes_bwr[23] + ibytes_bwr[22] - ibytes_bwr[21] - ibytes_bwr[20];
+					o_coeffs[48-1-3*11-:3]	<=	ibytes_bwr[19] + ibytes_bwr[18] - ibytes_bwr[17] - ibytes_bwr[16];
+					o_coeffs[48-1-3*12-:3]	<=	ibytes_bwr[15] + ibytes_bwr[14] - ibytes_bwr[13] - ibytes_bwr[12];
+					o_coeffs[48-1-3*13-:3]	<=	ibytes_bwr[11] + ibytes_bwr[10] - ibytes_bwr[ 9] - ibytes_bwr[ 8];
+					o_coeffs[48-1-3*14-:3]	<=	ibytes_bwr[ 7] + ibytes_bwr[ 6] - ibytes_bwr[ 5] - ibytes_bwr[ 4];
+					o_coeffs[48-1-3*15-:3]	<=	ibytes_bwr[ 3] + ibytes_bwr[ 2] - ibytes_bwr[ 1] - ibytes_bwr[ 0];
+				end
+				S_ETA3_0	: o_coeffs	<= o_coeffs;
+				S_ETA3_1	: begin
+					// From IByte Register
+					o_coeffs[48-1-3* 0-:3]	<=	ibytes_reg[63] + ibytes_reg[62] + ibytes_reg[61] - ibytes_reg[60] - ibytes_reg[59] - ibytes_reg[58];	// 0
+					o_coeffs[48-1-3* 1-:3]	<=	ibytes_reg[57] + ibytes_reg[56] + ibytes_reg[55] - ibytes_reg[54] - ibytes_reg[53] - ibytes_reg[52];	// 1
+					o_coeffs[48-1-3* 2-:3]	<=	ibytes_reg[51] + ibytes_reg[50] + ibytes_reg[49] - ibytes_reg[48] - ibytes_reg[47] - ibytes_reg[46];	// 2
+					o_coeffs[48-1-3* 3-:3]	<=	ibytes_reg[45] + ibytes_reg[44] + ibytes_reg[43] - ibytes_reg[42] - ibytes_reg[41] - ibytes_reg[40];	// 3
+					o_coeffs[48-1-3* 4-:3]	<=	ibytes_reg[39] + ibytes_reg[38] + ibytes_reg[37] - ibytes_reg[36] - ibytes_reg[35] - ibytes_reg[34];	// 4
+					o_coeffs[48-1-3* 5-:3]	<=	ibytes_reg[33] + ibytes_reg[32] + ibytes_reg[31] - ibytes_reg[30] - ibytes_reg[29] - ibytes_reg[28];	// 5
+					o_coeffs[48-1-3* 6-:3]	<=	ibytes_reg[27] + ibytes_reg[26] + ibytes_reg[25] - ibytes_reg[24] - ibytes_reg[23] - ibytes_reg[22];	// 6
+					o_coeffs[48-1-3* 7-:3]	<=	ibytes_reg[21] + ibytes_reg[20] + ibytes_reg[19] - ibytes_reg[18] - ibytes_reg[17] - ibytes_reg[16];	// 7
+					o_coeffs[48-1-3* 8-:3]	<=	ibytes_reg[15] + ibytes_reg[14] + ibytes_reg[13] - ibytes_reg[12] - ibytes_reg[11] - ibytes_reg[10];	// 8
+					o_coeffs[48-1-3* 9-:3]	<=	ibytes_reg[ 9] + ibytes_reg[ 8] + ibytes_reg[ 7] - ibytes_reg[ 6] - ibytes_reg[ 5] - ibytes_reg[ 4];	// 9
+					// From IByte Register & IByte
+					o_coeffs[48-1-3*10-:3]	<=	ibytes_reg[ 3] + ibytes_reg[ 2] + ibytes_reg[ 1] - ibytes_reg[ 0] - ibytes_bwr[63] - ibytes_bwr[62];	// 10
+					// From IByte
+					o_coeffs[48-1-3*11-:3]	<=	ibytes_bwr[61] + ibytes_bwr[60] + ibytes_bwr[59] - ibytes_bwr[58] - ibytes_bwr[57] - ibytes_bwr[56];	// 11
+					o_coeffs[48-1-3*12-:3]	<=	ibytes_bwr[55] + ibytes_bwr[54] + ibytes_bwr[53] - ibytes_bwr[52] - ibytes_bwr[51] - ibytes_bwr[50];	// 12
+					o_coeffs[48-1-3*13-:3]	<=	ibytes_bwr[49] + ibytes_bwr[48] + ibytes_bwr[47] - ibytes_bwr[46] - ibytes_bwr[45] - ibytes_bwr[44];	// 13
+					o_coeffs[48-1-3*14-:3]	<=	ibytes_bwr[43] + ibytes_bwr[42] + ibytes_bwr[41] - ibytes_bwr[40] - ibytes_bwr[39] - ibytes_bwr[38];	// 14
+					o_coeffs[48-1-3*15-:3]	<=	ibytes_bwr[37] + ibytes_bwr[36] + ibytes_bwr[35] - ibytes_bwr[34] - ibytes_bwr[33] - ibytes_bwr[32];	// 15
+				end
+				S_ETA3_2	: begin
+					// From IByte
+					o_coeffs[48-1-3* 0-:3]	<=	ibytes_reg[31] + ibytes_reg[30] + ibytes_reg[29] - ibytes_reg[28] - ibytes_reg[27] - ibytes_reg[26];	// 0
+					o_coeffs[48-1-3* 1-:3]	<=	ibytes_reg[25] + ibytes_reg[24] + ibytes_reg[23] - ibytes_reg[22] - ibytes_reg[21] - ibytes_reg[20];	// 1
+					o_coeffs[48-1-3* 2-:3]	<=	ibytes_reg[19] + ibytes_reg[18] + ibytes_reg[17] - ibytes_reg[16] - ibytes_reg[15] - ibytes_reg[14];	// 2
+					o_coeffs[48-1-3* 3-:3]	<=	ibytes_reg[13] + ibytes_reg[12] + ibytes_reg[11] - ibytes_reg[10] - ibytes_reg[ 9] - ibytes_reg[ 8];	// 3
+					o_coeffs[48-1-3* 4-:3]	<=	ibytes_reg[ 7] + ibytes_reg[ 6] + ibytes_reg[ 5] - ibytes_reg[ 4] - ibytes_reg[ 3] - ibytes_reg[ 2];	// 4
+					// From IByte Register & IByte
+					o_coeffs[48-1-3* 5-:3]	<=	ibytes_reg[ 1] + ibytes_reg[ 0] + ibytes_bwr[63] - ibytes_bwr[62] - ibytes_bwr[61] - ibytes_bwr[60];	// 5
+					// From IByte Register
+					o_coeffs[48-1-3* 6-:3]	<=	ibytes_bwr[59] + ibytes_bwr[58] + ibytes_bwr[57] - ibytes_bwr[56] - ibytes_bwr[55] - ibytes_bwr[54];	// 6
+					o_coeffs[48-1-3* 7-:3]	<=	ibytes_bwr[53] + ibytes_bwr[52] + ibytes_bwr[51] - ibytes_bwr[50] - ibytes_bwr[49] - ibytes_bwr[48];	// 7
+					o_coeffs[48-1-3* 8-:3]	<=	ibytes_bwr[47] + ibytes_bwr[46] + ibytes_bwr[45] - ibytes_bwr[44] - ibytes_bwr[43] - ibytes_bwr[42];	// 8
+					o_coeffs[48-1-3* 9-:3]	<=	ibytes_bwr[41] + ibytes_bwr[40] + ibytes_bwr[39] - ibytes_bwr[38] - ibytes_bwr[37] - ibytes_bwr[36];	// 9
+					o_coeffs[48-1-3*10-:3]	<=	ibytes_bwr[35] + ibytes_bwr[34] + ibytes_bwr[33] - ibytes_bwr[32] - ibytes_bwr[31] - ibytes_bwr[30];	// 10
+					o_coeffs[48-1-3*11-:3]	<=	ibytes_bwr[29] + ibytes_bwr[28] + ibytes_bwr[27] - ibytes_bwr[26] - ibytes_bwr[25] - ibytes_bwr[24];	// 11
+					o_coeffs[48-1-3*12-:3]	<=	ibytes_bwr[23] + ibytes_bwr[22] + ibytes_bwr[21] - ibytes_bwr[20] - ibytes_bwr[19] - ibytes_bwr[18];	// 12
+					o_coeffs[48-1-3*13-:3]	<=	ibytes_bwr[17] + ibytes_bwr[16] + ibytes_bwr[15] - ibytes_bwr[14] - ibytes_bwr[13] - ibytes_bwr[12];	// 13
+					o_coeffs[48-1-3*14-:3]	<=	ibytes_bwr[11] + ibytes_bwr[10] + ibytes_bwr[ 9] - ibytes_bwr[ 8] - ibytes_bwr[ 7] - ibytes_bwr[ 6];	// 14
+					o_coeffs[48-1-3*15-:3]	<=	ibytes_bwr[ 5] + ibytes_bwr[ 4] + ibytes_bwr[ 3] - ibytes_bwr[ 2] - ibytes_bwr[ 1] - ibytes_bwr[ 0];	// 15
+				end
+			endcase
 		end
 	end
-	
-	assign	o_coeffs =	{	coeffs[  0],
-							coeffs[  1],
-							coeffs[  2],
-							coeffs[  3],
-							coeffs[  4],
-							coeffs[  5],
-							coeffs[  6],
-							coeffs[  7],
-							coeffs[  8],
-							coeffs[  9],
-							coeffs[ 10],
-							coeffs[ 11],
-							coeffs[ 12],
-							coeffs[ 13],
-							coeffs[ 14],
-							coeffs[ 15],
-							coeffs[ 16],
-							coeffs[ 17],
-							coeffs[ 18],
-							coeffs[ 19],
-							coeffs[ 20],
-							coeffs[ 21],
-							coeffs[ 22],
-							coeffs[ 23],
-							coeffs[ 24],
-							coeffs[ 25],
-							coeffs[ 26],
-							coeffs[ 27],
-							coeffs[ 28],
-							coeffs[ 29],
-							coeffs[ 30],
-							coeffs[ 31],
-							coeffs[ 32],
-							coeffs[ 33],
-							coeffs[ 34],
-							coeffs[ 35],
-							coeffs[ 36],
-							coeffs[ 37],
-							coeffs[ 38],
-							coeffs[ 39],
-							coeffs[ 40],
-							coeffs[ 41],
-							coeffs[ 42],
-							coeffs[ 43],
-							coeffs[ 44],
-							coeffs[ 45],
-							coeffs[ 46],
-							coeffs[ 47],
-							coeffs[ 48],
-							coeffs[ 49],
-							coeffs[ 50],
-							coeffs[ 51],
-							coeffs[ 52],
-							coeffs[ 53],
-							coeffs[ 54],
-							coeffs[ 55],
-							coeffs[ 56],
-							coeffs[ 57],
-							coeffs[ 58],
-							coeffs[ 59],
-							coeffs[ 60],
-							coeffs[ 61],
-							coeffs[ 62],
-							coeffs[ 63],
-							coeffs[ 64],
-							coeffs[ 65],
-							coeffs[ 66],
-							coeffs[ 67],
-							coeffs[ 68],
-							coeffs[ 69],
-							coeffs[ 70],
-							coeffs[ 71],
-							coeffs[ 72],
-							coeffs[ 73],
-							coeffs[ 74],
-							coeffs[ 75],
-							coeffs[ 76],
-							coeffs[ 77],
-							coeffs[ 78],
-							coeffs[ 79],
-							coeffs[ 80],
-							coeffs[ 81],
-							coeffs[ 82],
-							coeffs[ 83],
-							coeffs[ 84],
-							coeffs[ 85],
-							coeffs[ 86],
-							coeffs[ 87],
-							coeffs[ 88],
-							coeffs[ 89],
-							coeffs[ 90],
-							coeffs[ 91],
-							coeffs[ 92],
-							coeffs[ 93],
-							coeffs[ 94],
-							coeffs[ 95],
-							coeffs[ 96],
-							coeffs[ 97],
-							coeffs[ 98],
-							coeffs[ 99],
-							coeffs[100],
-							coeffs[101],
-							coeffs[102],
-							coeffs[103],
-							coeffs[104],
-							coeffs[105],
-							coeffs[106],
-							coeffs[107],
-							coeffs[108],
-							coeffs[109],
-							coeffs[110],
-							coeffs[111],
-							coeffs[112],
-							coeffs[113],
-							coeffs[114],
-							coeffs[115],
-							coeffs[116],
-							coeffs[117],
-							coeffs[118],
-							coeffs[119],
-							coeffs[120],
-							coeffs[121],
-							coeffs[122],
-							coeffs[123],
-							coeffs[124],
-							coeffs[125],
-							coeffs[126],
-							coeffs[127],
-							coeffs[128],
-							coeffs[129],
-							coeffs[130],
-							coeffs[131],
-							coeffs[132],
-							coeffs[133],
-							coeffs[134],
-							coeffs[135],
-							coeffs[136],
-							coeffs[137],
-							coeffs[138],
-							coeffs[139],
-							coeffs[140],
-							coeffs[141],
-							coeffs[142],
-							coeffs[143],
-							coeffs[144],
-							coeffs[145],
-							coeffs[146],
-							coeffs[147],
-							coeffs[148],
-							coeffs[149],
-							coeffs[150],
-							coeffs[151],
-							coeffs[152],
-							coeffs[153],
-							coeffs[154],
-							coeffs[155],
-							coeffs[156],
-							coeffs[157],
-							coeffs[158],
-							coeffs[159],
-							coeffs[160],
-							coeffs[161],
-							coeffs[162],
-							coeffs[163],
-							coeffs[164],
-							coeffs[165],
-							coeffs[166],
-							coeffs[167],
-							coeffs[168],
-							coeffs[169],
-							coeffs[170],
-							coeffs[171],
-							coeffs[172],
-							coeffs[173],
-							coeffs[174],
-							coeffs[175],
-							coeffs[176],
-							coeffs[177],
-							coeffs[178],
-							coeffs[179],
-							coeffs[180],
-							coeffs[181],
-							coeffs[182],
-							coeffs[183],
-							coeffs[184],
-							coeffs[185],
-							coeffs[186],
-							coeffs[187],
-							coeffs[188],
-							coeffs[189],
-							coeffs[190],
-							coeffs[191],
-							coeffs[192],
-							coeffs[193],
-							coeffs[194],
-							coeffs[195],
-							coeffs[196],
-							coeffs[197],
-							coeffs[198],
-							coeffs[199],
-							coeffs[200],
-							coeffs[201],
-							coeffs[202],
-							coeffs[203],
-							coeffs[204],
-							coeffs[205],
-							coeffs[206],
-							coeffs[207],
-							coeffs[208],
-							coeffs[209],
-							coeffs[210],
-							coeffs[211],
-							coeffs[212],
-							coeffs[213],
-							coeffs[214],
-							coeffs[215],
-							coeffs[216],
-							coeffs[217],
-							coeffs[218],
-							coeffs[219],
-							coeffs[220],
-							coeffs[221],
-							coeffs[222],
-							coeffs[223],
-							coeffs[224],
-							coeffs[225],
-							coeffs[226],
-							coeffs[227],
-							coeffs[228],
-							coeffs[229],
-							coeffs[230],
-							coeffs[231],
-							coeffs[232],
-							coeffs[233],
-							coeffs[234],
-							coeffs[235],
-							coeffs[236],
-							coeffs[237],
-							coeffs[238],
-							coeffs[239],
-							coeffs[240],
-							coeffs[241],
-							coeffs[242],
-							coeffs[243],
-							coeffs[244],
-							coeffs[245],
-							coeffs[246],
-							coeffs[247],
-							coeffs[248],
-							coeffs[249],
-							coeffs[250],
-							coeffs[251],
-							coeffs[252],
-							coeffs[253],
-							coeffs[254],
-							coeffs[255]};
+
 
 endmodule
