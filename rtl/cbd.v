@@ -194,7 +194,7 @@ module cbd
 			case (c_state)
 				S_ETA2		,
 				S_ETA3_1	,
-				S_ETA3_2	: o_coeffs_valid	<= 1;
+				S_ETA3_2	: o_coeffs_valid	<= n_state != S_DONE ? 1 : 0;
 				default		: o_coeffs_valid	<= 0;
 			endcase
 		end

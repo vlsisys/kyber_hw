@@ -10,7 +10,8 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		50		// # of Test Vector
+`define NVEC		150		// # of Test Vector
+`define FINISH		20000	// # of Test Vector
 `define	DEBUG
 
 // --------------------------------------------------
@@ -150,11 +151,6 @@ module cbd_tb;
 			end
 		end
 		#(1000/`CLKFREQ);
-		for (i=0; i<`SIMCYCLE; i++) begin
-			vecInsert(i);
-			vecVerify(i);
-		end
-		#(1000/`CLKFREQ);
 		$finish;
 	end
 
@@ -173,6 +169,7 @@ module cbd_tb;
 			$dumpfile("cbd_tb.vcd");
 			$dumpvars;
 		end
+		#(`FINISH*1000/`CLKFREQ)	$finish;
 	end
 
 endmodule
