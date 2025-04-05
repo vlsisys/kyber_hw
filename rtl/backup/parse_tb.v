@@ -10,9 +10,8 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		160		// # of Test Vector
-//`define NVEC		10		// # of Test Vector
-`define FINISH		20000	// # of Test Vector
+`define NVEC		80		// # of Test Vector
+`define FINISH		10000	// # of Test Vector
 `define DEBUG
 
 // --------------------------------------------------
@@ -26,7 +25,6 @@ module parse_tb;
 // --------------------------------------------------
 	wire	[4*12-1:0]	o_coeffs       ;
 	wire				o_coeffs_valid ;
-	wire				o_ibytes_ready ;
 	wire				o_done		   ;
 	reg		[    63:0]	i_ibytes       ;
 	reg					i_ibytes_valid ;
@@ -37,7 +35,6 @@ module parse_tb;
 	u_parse(
 		.o_coeffs			(o_coeffs			),
 		.o_coeffs_valid		(o_coeffs_valid		),
-		.o_ibytes_ready		(o_ibytes_ready		),
 		.o_done				(o_done				),
 		.i_ibytes			(i_ibytes			),
 		.i_ibytes_valid		(i_ibytes_valid		),
@@ -45,27 +42,13 @@ module parse_tb;
 		.i_rstn				(i_rstn				)
 	);
 
-	reg		[6:0]		cnt_in;
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			cnt_in		<= 0;
-			i_ibytes	<= 0;
+	always @(*) begin
+		if (i_ibytes_valid) begin
+			i_ibytes		= vi_ibytes[i][768*8-1-(64*u_parse.cnt_in)-:64];
 		end else begin
-			if (i_ibytes_valid && o_ibytes_ready) begin
-				cnt_in		<= cnt_in + 1;
-				i_ibytes	<= vi_ibytes[i][768*8-1-(64*cnt_in)-:64];
-			end else begin
-				if (u_parse.c_state == 5) begin
-					cnt_in		<= 0;
-					i_ibytes	<= 0;
-				end else begin
-					cnt_in		<= cnt_in;
-					i_ibytes	<= i_ibytes;
-				end
-			end
+			i_ibytes		= 0;
 		end
 	end
-
 // --------------------------------------------------
 //	Clock
 // --------------------------------------------------
@@ -93,7 +76,7 @@ module parse_tb;
 			taskState		= "Init";
 			i_ibytes			= 0;
 			i_ibytes_valid		= 0;
-			i_clk				= 1;
+			i_clk				= 0;
 			i_rstn				= 0;
 		end
 	endtask
@@ -112,7 +95,7 @@ module parse_tb;
 		input	[$clog2(`NVEC)-1:0]	i;
 		begin
 			$sformat(taskState,	"VEC[%3d]", i);
-			@(posedge i_clk) begin
+			@(negedge i_clk) begin
 				i_ibytes_valid	= 1;
 			end
 		end
@@ -122,8 +105,8 @@ module parse_tb;
 		input	[$clog2(`NVEC)-1:0]	i;
 		begin
 			#(0.1*1000/`CLKFREQ);
-			if (u_parse.COEFFS != vo_coeffs[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
-			if (u_parse.COEFFS != vo_coeffs[i]) begin err++; end
+			if (u_parse.dbug_o_coeffs != vo_coeffs[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
+			if (u_parse.dbug_o_coeffs != vo_coeffs[i]) begin err++; end
 			#(0.9*1000/`CLKFREQ);
 		end
 	endtask
@@ -155,15 +138,18 @@ module parse_tb;
 	initial begin
 		if ($value$plusargs("vcd_file=%s", vcd_file)) begin
 			$dumpfile(vcd_file);
-			$dumpvars(0, u_parse.d1_0);
-			$dumpvars(0, u_parse.d1_1);
-			$dumpvars(0, u_parse.d2_0);
-			$dumpvars(0, u_parse.d2_1);
-			$dumpvars(0, u_parse.d1_if_0);
-			$dumpvars(0, u_parse.d1_if_1);
-			$dumpvars(0, u_parse.d2_if_0);
-			$dumpvars(0, u_parse.d2_if_1);
+			$dumpvars(0, u_parse.d1[0]);
+			$dumpvars(0, u_parse.d1[1]);
+			$dumpvars(0, u_parse.d2[0]);
+			$dumpvars(0, u_parse.d2[1]);
+			$dumpvars(0, u_parse.d1_cond[0]);
+			$dumpvars(0, u_parse.d1_cond[1]);
+			$dumpvars(0, u_parse.d2_cond[0]);
+			$dumpvars(0, u_parse.d2_cond[1]);
 			$dumpvars(0, vo_coeffs[0]);
+			for (i=0; i<256; i=i+1) begin
+				$dumpvars(0, u_parse.coeffs[i]);
+			end
 			$dumpvars;
 		end else begin
 			$dumpfile("parse_tb.vcd");

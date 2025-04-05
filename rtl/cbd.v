@@ -11,6 +11,7 @@ module cbd
 (	
 	output reg	[47:0]		o_coeffs,
 	output reg				o_coeffs_valid,
+	output reg				o_ibytes_ready,
 	output reg				o_done,
 	input		[63:0]		i_ibytes,
 	input					i_ibytes_valid,
@@ -18,19 +19,7 @@ module cbd
 	input					i_clk,
 	input					i_rstn
 );
-//	coefficients = [0 for _ in range(self.n)]
-//	list_of_bits = bytes_to_bits(input_bytes) # Convert 64 bytes to 512 bits
-//	for i in range(self.n):
-//		a = sum(list_of_bits[2*i*eta + j]       for j in range(eta))
-//		b = sum(list_of_bits[2*i*eta + eta + j] for j in range(eta))
-//		coefficients[i] = a-b
-// --------------------------------------------------
-//		max index: 
-//			eta == 2 : 4*i + 3 = 3,  7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63
-//			eta == 3 : 6*i + 5 = 5, 11, 17, 23, 29, 35, 41, 47, 53, 59
 
-	wire		[7:0]		ibytes_len;
-	assign					ibytes_len = (i_eta == 2) ? 128 : 192;
 // --------------------------------------------------
 //	FSM
 // --------------------------------------------------
@@ -41,8 +30,8 @@ module cbd
 	localparam	S_ETA3_2	= 3'd4  ;
 	localparam	S_DONE		= 3'd5  ;
 
-	reg			[1:0]		c_state;
-	reg			[1:0]		n_state;
+	reg			[2:0]		c_state;
+	reg			[2:0]		n_state;
 
 	// State Register
 	always @(posedge i_clk or negedge i_rstn) begin
@@ -58,10 +47,10 @@ module cbd
 		case(c_state)
 			S_IDLE		: n_state = (i_ibytes_valid && i_eta == 2)	? S_ETA2	: 
 									(i_ibytes_valid && i_eta == 3)	? S_ETA3_0	: S_IDLE;
-			S_ETA2		: n_state = (cnt_o == 15)					? S_DONE	: S_ETA2;
+			S_ETA2		: n_state = (cnt_coeffs == 15)				? S_DONE	: S_ETA2;
 			S_ETA3_0	: n_state = S_ETA3_1;
 			S_ETA3_1	: n_state = S_ETA3_2;
-			S_ETA3_2	: n_state = (cnt_o == 15)					? S_DONE	: S_ETA3_0;
+			S_ETA3_2	: n_state = (cnt_coeffs == 15)				? S_DONE	: S_ETA3_0;
 			S_DONE		: n_state = S_IDLE;
 			default		: n_state = S_IDLE;
 		endcase
@@ -69,31 +58,33 @@ module cbd
 
 	// Output Logic
 	always @(*) begin
-		case(c_state)
-			S_DONE	: o_done	= 1;
-			default	: o_done	= 0;
+		case(n_state)
+			S_ETA2		,
+			S_ETA3_0	,
+			S_ETA3_1	,
+			S_ETA3_2	: o_ibytes_ready	= 1;
+			default		: o_ibytes_ready	= 0;
 		endcase
 	end
+
+	always @(*) begin
+		case(c_state)
+			S_DONE		: o_done	= 1;
+			default		: o_done	= 0;
+		endcase
+	end
+
 // --------------------------------------------------
 //	Output Coefficients Counter
 // --------------------------------------------------
-	reg			[3:0]		cnt_o;
+	reg			[3:0]		cnt_coeffs;
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
-			cnt_o			<= 0;
-			o_coeffs_valid	<= 0;
+			cnt_coeffs	<= 0;
 		end else begin
 			case (c_state)
-				S_ETA2		,
-				S_ETA3_1	,
-				S_ETA3_2	: begin
-					cnt_o			<= cnt_o + 1;
-					o_coeffs_valid	<= 1;
-				end
-				default		: begin
-					cnt_o			<= 0;
-					o_coeffs_valid	<= 0;
-				end
+				S_DONE	: cnt_coeffs <= 0;
+				default	: cnt_coeffs <= o_coeffs_valid ? cnt_coeffs + 1 : cnt_coeffs;
 			endcase
 		end
 	end
@@ -117,16 +108,13 @@ module cbd
 
 	// Input Byte Register
 	reg			[63:0]		ibytes_reg;
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			ibytes_reg	<= 0;
-		end else begin
-			case (c_state)
-				S_ETA3_0	: ibytes_reg		<= ibytes_bwr       ;
-				S_ETA3_1	: ibytes_reg[31:0]	<= ibytes_bwr[31:0] ;
-				default		: ibytes_reg		<= ibytes_reg       ;
-			endcase
-		end
+	always @(posedge i_clk) begin
+		case (c_state)
+			S_ETA2		,
+			S_ETA3_0	: ibytes_reg		<= ibytes_bwr       ;
+			S_ETA3_1	: ibytes_reg[31:0]	<= ibytes_bwr[31:0] ;
+			default		: ibytes_reg		<= i_ibytes			;
+		endcase
 	end
 
 	always @(posedge i_clk or negedge i_rstn) begin
@@ -199,5 +187,44 @@ module cbd
 		end
 	end
 
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			o_coeffs_valid	<= 0;
+		end else begin
+			case (c_state)
+				S_ETA2		,
+				S_ETA3_1	,
+				S_ETA3_2	: o_coeffs_valid	<= 1;
+				default		: o_coeffs_valid	<= 0;
+			endcase
+		end
+	end
+
+	`ifdef DEBUG
+	reg			[127:0]			ASCII_C_STATE;
+	always @(*) begin
+		case (c_state)
+			S_IDLE		: ASCII_C_STATE = "IDLE  ";
+			S_ETA2		: ASCII_C_STATE = "ETA2  ";
+			S_ETA3_0	: ASCII_C_STATE = "ETA3_0";
+			S_ETA3_1	: ASCII_C_STATE = "ETA3_1";
+			S_ETA3_2	: ASCII_C_STATE = "ETA3_2";
+			S_DONE		: ASCII_C_STATE = "DONE  ";
+		endcase
+	end
+
+	reg			[256*3-1:0]	COEFFS;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			COEFFS	<= 0;
+		end else begin
+			if (o_coeffs_valid) begin
+				COEFFS[256*3-1-16*3*cnt_coeffs-:48]	<= o_coeffs;
+			end else begin
+				COEFFS	<= COEFFS;
+			end
+		end
+	end
+`endif
 
 endmodule

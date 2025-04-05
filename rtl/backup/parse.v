@@ -5,7 +5,7 @@
 //	* Description	: 
 // ==================================================
 
-`include	"configs.v"
+`include	"../configs.v"
 
 module parse
 (	

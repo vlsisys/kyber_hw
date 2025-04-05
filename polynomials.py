@@ -68,15 +68,15 @@ class PolynomialRing:
         self.parse_coefficients = coefficients
         self.parse_return = self(coefficients, is_ntt=is_ntt)
 
-        #print(f'[PARSE] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
-        #print(f'[PARSE] COEFF        : {coefficients}')
-        #print(f'[PARSE] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
-        #print(f'[PARSE] Return       : {self(coefficients, is_ntt=is_ntt)}')
+        # print(f'[PARSE] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
+        # print(f'[PARSE] COEFF        : {[hex(x).replace('0x','') for x in coefficients]}')
+        # print(f'[PARSE] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
+        # print(f'[PARSE] Return       : {self(coefficients, is_ntt=is_ntt)}')
 
-        #vecDict = dict()
-        #vecDict['i_ibytes'] = int.from_bytes(input_bytes)
-        #vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in coefficients), 2)
-        #genvec('parse', vecDict, 768*2)
+        # vecDict = dict()
+        # vecDict['i_ibytes'] = int.from_bytes(input_bytes)
+        # vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in coefficients), 2)
+        # genvec('parse', vecDict, 768*2)
 
         return self(coefficients, is_ntt=is_ntt)      
 
@@ -96,7 +96,7 @@ class PolynomialRing:
         for i in range(self.n):
             a = sum(list_of_bits[2*i*eta + j]       for j in range(eta))
             b = sum(list_of_bits[2*i*eta + eta + j] for j in range(eta))
-            print(f'eta: {eta}, 2*i*eta: {2*i*eta}')
+            #print(f'eta: {eta}, 2*i*eta: {2*i*eta}')
             coefficients[i] = a-b
 
         """

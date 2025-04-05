@@ -29,8 +29,8 @@ module parse
 	localparam	S_PRS3		= 3'd4  ;
 	localparam	S_DONE		= 3'd5  ;
 
-	reg			[1:0]		c_state;
-	reg			[1:0]		n_state;
+	reg			[2:0]		c_state;
+	reg			[2:0]		n_state;
 
 	// State Register
 	always @(posedge i_clk or negedge i_rstn) begin
@@ -44,11 +44,11 @@ module parse
 	// Next State Logic
 	always @(*) begin
 		case(c_state)
-			S_IDLE	: n_state = (i_ibytes_valid)	? S_PRS0 : S_IDLE;
-			S_PRS0	: n_state = S_PRS1;
-			S_PRS1	: n_state = S_PRS2;
-			S_PRS2	: n_state = S_PRS3;
-			S_PRS3	: n_state = (cnt_coeff == 63)	? S_DONE	: S_PRS3;
+			S_IDLE	: n_state = (i_ibytes_valid  ) ? S_PRS0 : S_IDLE;
+			S_PRS0	: n_state = (cnt_coeffs == 63) ? S_DONE : S_PRS1;
+			S_PRS1	: n_state = (cnt_coeffs == 63) ? S_DONE : S_PRS2;
+			S_PRS2	: n_state = (cnt_coeffs == 63) ? S_DONE : S_PRS3;
+			S_PRS3	: n_state = (cnt_coeffs == 63) ? S_DONE : S_PRS0;
 			S_DONE	: n_state = S_IDLE;
 		endcase
 	end
@@ -62,7 +62,7 @@ module parse
 	end
 
 	always @(*) begin
-		case(c_state)
+		case(n_state)
 			S_PRS0	,
 			S_PRS1	,
 			S_PRS2	: o_ibytes_ready	= 1;
@@ -74,16 +74,8 @@ module parse
 //	Input Byte Register
 // --------------------------------------------------
 	reg			[63:0]		ibytes_reg;
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			ibytes_reg	<= 0;
-		end else begin
-			if (i_ibytes_valid && o_ibytes_ready) begin
-				ibytes_reg	<= i_ibytes;
-			end else begin
-				ibytes_reg	<= ibytes_reg;
-			end
-		end
+	always @(posedge i_clk) begin
+		ibytes_reg	<= i_ibytes;
 	end
 
 // --------------------------------------------------
@@ -93,10 +85,10 @@ module parse
 	reg			[11:0]		d2_0;
 	reg			[11:0]		d1_1;
 	reg			[11:0]		d2_1;
-	wire					d1_if_0;
-	wire					d2_if_0;
-	wire					d1_if_1;
-	wire					d2_if_1;
+	reg						d1_if_0;
+	reg						d2_if_0;
+	reg						d1_if_1;
+	reg						d2_if_1;
 
 	always @(*) begin
 		case (c_state)
@@ -133,10 +125,25 @@ module parse
 		endcase
 	end
 
-	assign	d1_if_0 = (d1_0 < `KYBER_CONFIG_Q)																	? 1:0;
-	assign	d2_if_0 = (d2_0 < `KYBER_CONFIG_Q) && ((cnt_loop + d1_if_0)	< `KYBER_CONFIG_N)						? 1:0;
-	assign	d1_if_1 = (d1_1 < `KYBER_CONFIG_Q)																	? 1:0;
-	assign	d2_if_1 = (d2_1 < `KYBER_CONFIG_Q) && ((cnt_loop + d1_if_0 + d2_if_0 + d1_if_1) < `KYBER_CONFIG_N)	? 1:0;
+	always @(*) begin
+		case(c_state)
+			S_PRS0	,
+			S_PRS1	,
+			S_PRS2	,
+			S_PRS3	: begin
+				d1_if_0 = (d1_0 < `KYBER_CONFIG_Q)																	? 1:0;
+				d2_if_0 = (d2_0 < `KYBER_CONFIG_Q) && ((cnt_loop + d1_if_0)	< `KYBER_CONFIG_N)						? 1:0;
+				d1_if_1 = (d1_1 < `KYBER_CONFIG_Q)																	? 1:0;
+				d2_if_1 = (d2_1 < `KYBER_CONFIG_Q) && ((cnt_loop + d1_if_0 + d2_if_0 + d1_if_1) < `KYBER_CONFIG_N)	? 1:0;
+			end
+			default	: begin
+				d1_if_0 = 0;
+				d2_if_0 = 0;
+				d1_if_1 = 0;
+				d2_if_1 = 0;
+			end
+		endcase
+	end
 
 	//	Counter for While Loop
 	wire		[2:0]		add_if;
@@ -229,106 +236,134 @@ module parse
 			coeffs_reg	<= 0;
 		end else begin
 			case ({c_state_cff, d1_if_0, d2_if_0, d1_if_1, d2_if_1})
+				//	Empty && 1 Coeffs
 				{CFF_EMPTY, 4'b0001}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
 				{CFF_EMPTY, 4'b0010}: coeffs_reg[3*12-1-12*0-:12*1] <= {            d1_1      } ;
 				{CFF_EMPTY, 4'b0100}: coeffs_reg[3*12-1-12*0-:12*1] <= {      d2_0            } ;
 				{CFF_EMPTY, 4'b1000}: coeffs_reg[3*12-1-12*0-:12*1] <= {d1_0                  } ;
-
+				//	Empty && 2 Coeffs
 				{CFF_EMPTY, 4'b0011}: coeffs_reg[3*12-1-12*0-:12*2] <= {            d1_1, d2_1} ;
 				{CFF_EMPTY, 4'b0101}: coeffs_reg[3*12-1-12*0-:12*2] <= {      d2_0,       d2_1} ;
 				{CFF_EMPTY, 4'b0110}: coeffs_reg[3*12-1-12*0-:12*2] <= {      d2_0, d1_1      } ;
 				{CFF_EMPTY, 4'b1001}: coeffs_reg[3*12-1-12*0-:12*2] <= {d1_0,             d2_1} ;
 				{CFF_EMPTY, 4'b1010}: coeffs_reg[3*12-1-12*0-:12*2] <= {d1_0,       d1_1      } ;
 				{CFF_EMPTY, 4'b1100}: coeffs_reg[3*12-1-12*0-:12*2] <= {d1_0, d2_0            } ;
-
+				//	Empty && 3 Coeffs
 				{CFF_EMPTY, 4'b0111}: coeffs_reg[3*12-1-12*0-:12*3] <= {      d2_0, d1_1, d2_1} ;
 				{CFF_EMPTY, 4'b1011}: coeffs_reg[3*12-1-12*0-:12*3] <= {d1_0,       d1_1, d2_1} ;
 				{CFF_EMPTY, 4'b1101}: coeffs_reg[3*12-1-12*0-:12*3] <= {d1_0, d2_0,       d2_1} ;
 				{CFF_EMPTY, 4'b1110}: coeffs_reg[3*12-1-12*0-:12*3] <= {d1_0, d2_0, d1_1      } ;
-
+				//	Empty && 4 Coeffs
 				{CFF_EMPTY, 4'b1111}: coeffs_reg                    <= coeffs_reg               ;
-
+				//	Fill1 && 1 Coeffs
 				{CFF_FILL1, 4'b0001}: coeffs_reg[3*12-1-12*1-:12*1] <= {                  d2_1} ;
 				{CFF_FILL1, 4'b0010}: coeffs_reg[3*12-1-12*1-:12*1] <= {            d1_1      } ;
 				{CFF_FILL1, 4'b0100}: coeffs_reg[3*12-1-12*1-:12*1] <= {      d2_0            } ;
 				{CFF_FILL1, 4'b1000}: coeffs_reg[3*12-1-12*1-:12*1] <= {d1_0                  } ;
-
+				//	Fill1 && 2 Coeffs
 				{CFF_FILL1, 4'b0011}: coeffs_reg[3*12-1-12*1-:12*2] <= {            d1_1, d2_1} ;
 				{CFF_FILL1, 4'b0101}: coeffs_reg[3*12-1-12*1-:12*2] <= {      d2_0,       d2_1} ;
 				{CFF_FILL1, 4'b0110}: coeffs_reg[3*12-1-12*1-:12*2] <= {      d2_0, d1_1      } ;
 				{CFF_FILL1, 4'b1001}: coeffs_reg[3*12-1-12*1-:12*2] <= {d1_0,             d2_1} ;
 				{CFF_FILL1, 4'b1010}: coeffs_reg[3*12-1-12*1-:12*2] <= {d1_0,       d1_1      } ;
 				{CFF_FILL1, 4'b1100}: coeffs_reg[3*12-1-12*1-:12*2] <= {d1_0, d2_0            } ;
-
+				//	Fill1 && 4 Coeffs
 				{CFF_FILL1, 4'b1111}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
-
+				//	Fill2 && 1 Coeffs
 				{CFF_FILL2, 4'b0001}: coeffs_reg[3*12-1-12*2-:12*1] <= {                  d2_1} ;
 				{CFF_FILL2, 4'b0010}: coeffs_reg[3*12-1-12*2-:12*1] <= {            d1_1      } ;
 				{CFF_FILL2, 4'b0100}: coeffs_reg[3*12-1-12*2-:12*1] <= {      d2_0            } ;
 				{CFF_FILL2, 4'b1000}: coeffs_reg[3*12-1-12*2-:12*1] <= {d1_0                  } ;
-
-				{CFF_FILL2, 4'b0111}: coeffs_reg[3*12-1-12*2-:12*1] <= {                  d2_1} ;
-				{CFF_FILL2, 4'b1011}: coeffs_reg[3*12-1-12*2-:12*1] <= {                  d2_1} ;
-				{CFF_FILL2, 4'b1101}: coeffs_reg[3*12-1-12*2-:12*1] <= {                  d2_1} ;
-				{CFF_FILL2, 4'b1110}: coeffs_reg[3*12-1-12*2-:12*1] <= {            d1_1      } ;
-
-				{CFF_FILL2, 4'b1111}: coeffs_reg[3*12-1-12*2-:12*2] <= {            d1_1, d2_1} ;
-
+				//	Fill2 && 3 Coeffs
+				{CFF_FILL2, 4'b0111}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
+				{CFF_FILL2, 4'b1011}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
+				{CFF_FILL2, 4'b1101}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
+				{CFF_FILL2, 4'b1110}: coeffs_reg[3*12-1-12*0-:12*1] <= {            d1_1      } ;
+				//	Fill2 && 4 Coeffs
+				{CFF_FILL2, 4'b1111}: coeffs_reg[3*12-1-12*0-:12*2] <= {            d1_1, d2_1} ;
+				//	Fill3 && 2 Coeffs
+				{CFF_FILL3, 4'b0011}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
+				{CFF_FILL3, 4'b0101}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
+				{CFF_FILL3, 4'b0110}: coeffs_reg[3*12-1-12*0-:12*1] <= {            d1_1      } ;
+				{CFF_FILL3, 4'b1001}: coeffs_reg[3*12-1-12*0-:12*1] <= {                  d2_1} ;
+				{CFF_FILL3, 4'b1010}: coeffs_reg[3*12-1-12*0-:12*1] <= {            d1_1      } ;
+				{CFF_FILL3, 4'b1100}: coeffs_reg[3*12-1-12*0-:12*1] <= {      d2_0            } ;
+				//	Fill3 && 3 Coeffs
+				{CFF_FILL3, 4'b0111}: coeffs_reg[3*12-1-12*0-:12*2] <= {            d1_1, d2_1} ;
+				{CFF_FILL3, 4'b1011}: coeffs_reg[3*12-1-12*0-:12*2] <= {            d1_1, d2_1} ;
+				{CFF_FILL3, 4'b1101}: coeffs_reg[3*12-1-12*0-:12*2] <= {      d2_0,       d2_1} ;
+				{CFF_FILL3, 4'b1110}: coeffs_reg[3*12-1-12*0-:12*2] <= {      d2_0, d1_1      } ;
+				//	Fill3 && 4 Coeffs
 				{CFF_FILL3, 4'b1111}: coeffs_reg[3*12-1-12*0-:12*3] <= {      d2_0, d1_1, d2_1} ;
-
 				default				: coeffs_reg                    <= coeffs_reg;
 			endcase
 		end
 	end
 
-	reg		[5:0]			cnt_coeff;
-
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
 			o_coeffs		<= 0;
+			o_coeffs_valid	<= 0; 
 		end else begin
 			case ({c_state_cff, d1_if_0, d2_if_0, d1_if_1, d2_if_1})
-				{CFF_EMPTY, 4'b1111}: o_coeffs		<= {                    d1_0, d2_0, d1_1, d2_1};
-
-				{CFF_FILL1, 4'b0111}: o_coeffs		<= {coeffs_reg[3*12-1-:12*1], d2_0, d1_1, d2_1};
-				{CFF_FILL1, 4'b1011}: o_coeffs		<= {coeffs_reg[3*12-1-:12*1], d1_0, d1_1, d2_1};
-				{CFF_FILL1, 4'b1101}: o_coeffs		<= {coeffs_reg[3*12-1-:12*1], d1_0, d2_0, d2_1};
-				{CFF_FILL1, 4'b1110}: o_coeffs		<= {coeffs_reg[3*12-1-:12*1], d1_0, d2_0, d1_1};
-
-				{CFF_FILL1, 4'b1111}: o_coeffs		<= {coeffs_reg[3*12-1-:12*1], d1_0, d2_0, d1_1};
-
-				{CFF_FILL2, 4'b0011}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_1, d2_1};
-				{CFF_FILL2, 4'b0101}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d2_0, d2_1};
-				{CFF_FILL2, 4'b0110}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d2_0, d1_1};
-				{CFF_FILL2, 4'b1001}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_1};
-				{CFF_FILL2, 4'b1010}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_0, d1_1};
-				{CFF_FILL2, 4'b1100}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0};
-
-				{CFF_FILL2, 4'b0111}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d2_0, d1_1};
-				{CFF_FILL2, 4'b1011}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_0, d1_1};
-				{CFF_FILL2, 4'b1101}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0};
-				{CFF_FILL2, 4'b1110}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0};
-
-				{CFF_FILL2, 4'b1111}: o_coeffs		<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0};
-
-				{CFF_FILL3, 4'b0001}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d2_1};
-				{CFF_FILL3, 4'b0010}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d1_1};
-				{CFF_FILL3, 4'b0100}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d2_0};
-				{CFF_FILL3, 4'b1000}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d1_0};
-
-				{CFF_FILL3, 4'b0011}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d1_1, d2_1};
-				{CFF_FILL3, 4'b0101}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d2_0, d2_1};
-				{CFF_FILL3, 4'b0110}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d2_0, d1_1};
-				{CFF_FILL3, 4'b1001}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d1_0, d2_1};
-				{CFF_FILL3, 4'b1010}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d1_0, d1_1};
-				{CFF_FILL3, 4'b1100}: o_coeffs		<= {coeffs_reg[3*12-1-:12*3], d1_0, d2_0};
-
-
-				default				: o_coeffs		<= o_coeffs;
+				//	Empty && 4 Coeffs
+				{CFF_EMPTY, 4'b1111}: begin	o_coeffs	<= {                    d1_0, d2_0, d1_1, d2_1} ;	o_coeffs_valid	<= 1;	end
+				//	Fill1 && 3 Coeffs
+				{CFF_FILL1, 4'b0111}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*1], d2_0, d1_1, d2_1} ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL1, 4'b1011}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*1], d1_0, d1_1, d2_1} ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL1, 4'b1101}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*1], d1_0, d2_0, d2_1} ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL1, 4'b1110}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*1], d1_0, d2_0, d1_1} ;	o_coeffs_valid	<= 1;	end
+				//	Fill1 && 4 Coeffs
+				{CFF_FILL1, 4'b1111}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*1], d1_0, d2_0, d1_1} ;	o_coeffs_valid	<= 1;	end
+				//	Fill2 && 2 Coeffs
+				{CFF_FILL2, 4'b0011}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_1, d2_1}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b0101}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d2_0, d2_1}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b0110}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d2_0, d1_1}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b1001}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_1}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b1010}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_0, d1_1}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b1100}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0}       ;	o_coeffs_valid	<= 1;	end
+				//	Fill2 && 3 Coeffs
+				{CFF_FILL2, 4'b0111}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d2_0, d1_1}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b1011}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_0, d1_1}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b1101}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0}       ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL2, 4'b1110}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0}       ;	o_coeffs_valid	<= 1;	end
+				//	Fill2 && 4 Coeffs
+				{CFF_FILL2, 4'b1111}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*2], d1_0, d2_0}       ;	o_coeffs_valid	<= 1;	end
+				//	Fill3 && 1 Coeffs
+				{CFF_FILL3, 4'b0001}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d2_1}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b0010}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_1}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b0100}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d2_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b1000}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				//	Fill3 && 2 Coeffs
+				{CFF_FILL3, 4'b0011}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_1}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b0101}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d2_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b0110}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d2_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b1001}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b1010}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b1100}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				//	Fill3 && 3 Coeffs
+				{CFF_FILL3, 4'b0111}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d2_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b1011}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b1101}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				{CFF_FILL3, 4'b1110}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				//	Fill3 && 4 Coeffs
+				{CFF_FILL3, 4'b1111}: begin	o_coeffs	<= {coeffs_reg[3*12-1-:12*3], d1_0}             ;	o_coeffs_valid	<= 1;	end
+				default				: begin	o_coeffs	<= o_coeffs                                     ;	o_coeffs_valid	<= 0;	end
 			endcase
 		end
 	end
 
+	reg		[6:0]			cnt_coeffs;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			cnt_coeffs	<= 0;
+		end else begin
+			case (c_state)
+				S_DONE	: cnt_coeffs <= 0;
+				default	: cnt_coeffs <= o_coeffs_valid ? cnt_coeffs + 1 : cnt_coeffs;
+			endcase
+		end
+	end
 
 	`ifdef DEBUG
 	reg			[127:0]			ASCII_C_STATE;
@@ -342,6 +377,30 @@ module parse
 			S_DONE	: ASCII_C_STATE = "DONE";
 		endcase
 	end
+
+	reg			[127:0]			ASCII_C_STATE_CFF;
+	always @(*) begin
+		case (c_state_cff)
+			CFF_EMPTY	: ASCII_C_STATE_CFF = "EMPTY";
+			CFF_FILL1	: ASCII_C_STATE_CFF = "FILL1";
+			CFF_FILL2	: ASCII_C_STATE_CFF = "FILL2";
+			CFF_FILL3	: ASCII_C_STATE_CFF = "FILL3";
+		endcase
+	end
+
+	reg			[256*12-1:0]	COEFFS;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			COEFFS	<= 0;
+		end else begin
+			if (o_coeffs_valid) begin
+				COEFFS[256*12-1-4*12*cnt_coeffs-:48]	<= o_coeffs;
+			end else begin
+				COEFFS	<= COEFFS;
+			end
+		end
+	end
+
 	`endif
 
 endmodule
