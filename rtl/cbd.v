@@ -93,18 +93,21 @@ module cbd
 //	Input Byte With Byte-Wise Reversed Order
 // --------------------------------------------------
 	wire		[63:0]		ibytes_bwr;	
-	for (genvar i=0; i<8; i=i+1) begin
-		assign	ibytes_bwr[64-1-8*i-:8] = {
-					i_ibytes[64-1-8*i-7],
-					i_ibytes[64-1-8*i-6],
-					i_ibytes[64-1-8*i-5],
-					i_ibytes[64-1-8*i-4],
-					i_ibytes[64-1-8*i-3],
-					i_ibytes[64-1-8*i-2],
-					i_ibytes[64-1-8*i-1],
-					i_ibytes[64-1-8*i-0]
-		};
-	end
+	genvar					i;
+	generate
+		for (i=0; i<8; i=i+1) begin
+			assign	ibytes_bwr[64-1-8*i-:8] = {
+						i_ibytes[64-1-8*i-7],
+						i_ibytes[64-1-8*i-6],
+						i_ibytes[64-1-8*i-5],
+						i_ibytes[64-1-8*i-4],
+						i_ibytes[64-1-8*i-3],
+						i_ibytes[64-1-8*i-2],
+						i_ibytes[64-1-8*i-1],
+						i_ibytes[64-1-8*i-0]
+			};
+		end
+	endgenerate
 
 	// Input Byte Register
 	reg			[63:0]		ibytes_reg;
@@ -225,6 +228,6 @@ module cbd
 			end
 		end
 	end
-`endif
+	`endif
 
 endmodule

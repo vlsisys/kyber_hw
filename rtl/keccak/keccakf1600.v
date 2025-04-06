@@ -25,8 +25,10 @@ module keccakf1600
 	wire		[        63:0]	state_i[0:4][0:4];
 	wire		[        63:0]	state_o[0:4][0:4];
 
-	for (genvar x=0; x<5; x=x+1) begin
-		for (genvar y=0; y<5; y=y+1) begin
+	genvar		x, y;
+	generate
+	for (x=0; x<5; x=x+1) begin
+		for (y=0; y<5; y=y+1) begin
 			assign	state_i[x][y]	= i_state[`BW_KCCK-1-((x+5*y)*64)-:64]; 
 			assign	lanes_i[`BW_KCCK-1-((5*x+y)*64)-:64]	
 					= {	state_i[x][y][63-7*8-:8],
@@ -39,6 +41,7 @@ module keccakf1600
 						state_i[x][y][63-0*8-:8]};
 		end
 	end
+	endgenerate
 
 // --------------------------------------------------
 //	FSM
@@ -110,13 +113,15 @@ module keccakf1600
 // --------------------------------------------------
 	wire		[63:0]			lanes[0:4][0:4];
 
-	for (genvar x=0; x<5; x=x+1) begin
-		for (genvar y=0; y<5; y=y+1) begin
+	generate
+	for (x=0; x<5; x=x+1) begin
+		for (y=0; y<5; y=y+1) begin
 			assign	lanes[x][y]	=	
 					(c_state == S_IDLE) 				? 0 :
 					(c_state == S_COMP && round == 0)	? lanes_i[`BW_KCCK-1-((5*x+y)*64)-:64] : lanes_o[`BW_KCCK-1-((5*x+y)*64)-:64];
 		end
 	end
+	endgenerate
 
 // --------------------------------------------------
 //	Theta
@@ -125,16 +130,20 @@ module keccakf1600
 	wire		[63:0]			d[0:4];
 	wire		[63:0]			lanes_theta[0:4][0:4];
 
-	for (genvar x=0; x<5; x=x+1) begin
+	generate
+	for (x=0; x<5; x=x+1) begin
 		assign	c[x] = lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4];
 		assign	d[x] = c[(x+4)%5] ^ (((c[(x+1)%5] >> (64-(1))) + (c[(x+1)%5] << (1))) % mod);
 	end
+	endgenerate
 
-	for (genvar x=0; x<5; x=x+1) begin
-		for (genvar y=0; y<5; y=y+1) begin
+	generate
+	for (x=0; x<5; x=x+1) begin
+		for (y=0; y<5; y=y+1) begin
 			assign	lanes_theta[x][y]	= lanes[x][y] ^ d[x];
 		end
 	end
+	endgenerate
 
 // --------------------------------------------------
 //	Rho & Pi
@@ -199,12 +208,14 @@ module keccakf1600
 	wire		[63:0]			lanes_chi[0:4][0:4];
 	wire		[63:0]			t[0:4][0:4];
 
-	for (genvar y=0; y<5; y=y+1) begin
-		for (genvar x=0; x<5; x=x+1) begin
+	generate
+	for (y=0; y<5; y=y+1) begin
+		for (x=0; x<5; x=x+1) begin
 			assign	t[x][y]			= lanes_pi[x][y];
 			assign	lanes_chi[x][y]	= t[x][y] ^ ((~t[(x+1)%5][y]) & (t[(x+2)%5][y]));
 		end
 	end
+	endgenerate
 
 // --------------------------------------------------
 //	Iota
@@ -213,7 +224,8 @@ module keccakf1600
 	wire		[63:0]			lanes_iota_00[0:6];
 	wire		[7:0]			r[0:6];
 
-	for (genvar x=0; x<7; x=x+1) begin
+	generate
+	for (x=0; x<7; x=x+1) begin
 		if (x==0) begin
 			assign	r[x]				= ((r_init << 1) ^ ((r_init >> 7)*'h71)) % 256;
 			assign	lanes_iota_00[x]	= (r[x] & 2) ? lanes_chi[0][0]    ^ (1 << ((1<<x)-1)): lanes_chi[0][0];
@@ -222,9 +234,11 @@ module keccakf1600
 			assign	lanes_iota_00[x]	= (r[x] & 2) ? lanes_iota_00[x-1] ^ (1 << ((1<<x)-1)): lanes_iota_00[x-1];
 		end
 	end
+	endgenerate
 
-	for (genvar x=0; x<5; x=x+1) begin
-		for (genvar y=0; y<5; y=y+1) begin
+	generate
+	for (x=0; x<5; x=x+1) begin
+		for (y=0; y<5; y=y+1) begin
 			if (x == 0 && y == 0) begin
 				assign	lanes_iota[x][y] = lanes_iota_00[6];
 			end else begin
@@ -232,13 +246,16 @@ module keccakf1600
 			end
 		end
 	end
+	endgenerate
 
 	wire		[`BW_KCCK-1:0]	lanes_last;
-	for (genvar x=0; x<5; x=x+1) begin
-		for (genvar y=0; y<5; y=y+1) begin
+	generate
+	for (x=0; x<5; x=x+1) begin
+		for (y=0; y<5; y=y+1) begin
 			assign	lanes_last[`BW_KCCK-1-((5*x+y)*64)-:64] = lanes_iota[x][y];
 		end
 	end
+	endgenerate
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
@@ -251,8 +268,9 @@ module keccakf1600
 		end
 	end
 
-	for (genvar x=0; x<5; x=x+1) begin
-		for (genvar y=0; y<5; y=y+1) begin
+	generate
+	for (x=0; x<5; x=x+1) begin
+		for (y=0; y<5; y=y+1) begin
 			assign	state_o[x][y]	= lanes_o[`BW_KCCK-1-((5*x+y)*64)-:64]; 
 			assign	o_state[`BW_KCCK-1-((x+5*y)*64)-:64]	= 	
 								{	state_o[x][y][63-7*8-:8],
@@ -265,5 +283,6 @@ module keccakf1600
 									state_o[x][y][63-0*8-:8]};
 		end
 	end
+	endgenerate
 
 endmodule
