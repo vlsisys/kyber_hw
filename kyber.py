@@ -101,8 +101,8 @@ class Kyber:
         self._xof_input_bytes   = input_bytes
 
         #print(f'SHAKE128:{len(input_bytes)}, {length}')
-        return shake_128(input_bytes).digest(length)
-        #return SHAKE128(input_bytes, length)
+        # return shake_128(input_bytes).digest(length)
+        return SHAKE128(input_bytes, length)
     
     # Pseudorandom Function (PRF): Hash the s + b values (bytes) using the shake_256 algorithm and product the output with specified "length"
     @staticmethod  
@@ -115,8 +115,8 @@ class Kyber:
             raise ValueError(f"Input bytes should be one 32 byte array and one single byte.")
         
         #print(f'SHAKE256:{len(input_bytes)}, {length}')
-        return shake_256(input_bytes).digest(length)
-        #return SHAKE256(input_bytes, length)
+        # return shake_256(input_bytes).digest(length)
+        return SHAKE256(input_bytes, length)
     
     # Hash the input_bytes by sha3_256 algorithm
     @staticmethod
@@ -125,8 +125,8 @@ class Kyber:
         H: B* -> B^32
         """
         #print(f'SHA3_256:{len(input_bytes)}')
-        return sha3_256(input_bytes).digest() # 32 bytes long
-        #return SHA3_256(input_bytes)
+        #return sha3_256(input_bytes).digest() # 32 bytes long
+        return SHA3_256(input_bytes)
     
     # Hash the input_bytes by sha3_512 algorithm
     @staticmethod  
@@ -134,8 +134,8 @@ class Kyber:
         """
         G: B* -> B^32 x B^32
         """
-        output = sha3_512(input_bytes).digest() # 64 bytes long
-        #output = SHA3_512(input_bytes)
+        #output = sha3_512(input_bytes).digest() # 64 bytes long
+        output = SHA3_512(input_bytes)
         #print(f'SHA3_512:{len(input_bytes)}')
         return output[:32], output[32:]
     
@@ -146,8 +146,8 @@ class Kyber:
         KDF: B^* -> B^*
         """
         #print(f'SHAKE256:{len(input_bytes)}, {length}')
-        return shake_256(input_bytes).digest(length)
-        #return SHAKE256(input_bytes, length)
+        # return shake_256(input_bytes).digest(length)
+        return SHAKE256(input_bytes, length)
     
     # Generate an error vector that consists of "self.k" polynomials 
     # sigma: A byte sequence used as an input to a pseudo-random function (PRF).
@@ -166,6 +166,15 @@ class Kyber:
             elements.append(poly)
             N = N + 1
         v = self.M(elements).transpose() # An instance of Matrix class (Has been transposed from shape (k, 1) to shape (1, k))
+        v_norm = self.M(elements)
+
+        """For Test"""
+        self._generate_error_vector_v = v
+        self._generate_error_vector_v_norm = v_norm
+        self._generate_error_vector_N = N
+        self._generate_error_vector_sigma = sigma
+        self._generate_error_vector_eta = eta
+
         return v, N
         
     # Generate an element of size "k" x "k" from a seed "rho". It's used to create matrices during the key generation process

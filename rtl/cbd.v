@@ -48,8 +48,8 @@ module cbd
 			S_IDLE		: n_state = (i_ibytes_valid && i_eta == 2)	? S_ETA2	: 
 									(i_ibytes_valid && i_eta == 3)	? S_ETA3_0	: S_IDLE;
 			S_ETA2		: n_state = (cnt_coeffs == 15)				? S_DONE	: S_ETA2;
-			S_ETA3_0	: n_state = S_ETA3_1;
-			S_ETA3_1	: n_state = S_ETA3_2;
+			S_ETA3_0	: n_state = (cnt_coeffs == 15)				? S_DONE	: S_ETA3_1;
+			S_ETA3_1	: n_state = (cnt_coeffs == 15)				? S_DONE	: S_ETA3_2;
 			S_ETA3_2	: n_state = (cnt_coeffs == 15)				? S_DONE	: S_ETA3_0;
 			S_DONE		: n_state = S_IDLE;
 			default		: n_state = S_IDLE;
