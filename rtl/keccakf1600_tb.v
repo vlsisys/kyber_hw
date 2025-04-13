@@ -48,6 +48,8 @@ module keccakf1600_tb;
 		end else begin
 			if (i_istate_valid && o_istate_ready) begin
 				i_istate	<= vi_istate[i];
+			end else if (i_istate_valid) begin
+				i_istate	<= o_ostate;
 			end else begin
 				i_istate	<= i_istate;
 			end
@@ -124,8 +126,9 @@ module keccakf1600_tb;
 		#(8000/`CLKFREQ);
 		for (i=0; i<`SIMCYCLE; i++) begin
 			vecInsert(i);
-			@(negedge o_ostate_valid) begin
+			@(posedge o_ostate_valid) begin
 				i_istate_valid	= 0;
+				#(100/`CLKFREQ);
 				vecVerify(i);
 				#(8000/`CLKFREQ);
 			end

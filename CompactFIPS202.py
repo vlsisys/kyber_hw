@@ -32,21 +32,17 @@ def genvec(funcName, dict, bitwidth):
 
 def ROL64(a, n):
     out =  ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
-    #gen_vec('ROL64', a, n, out)
     return out
 
 def KeccakF1600onLanes(lanes):
-    #print(lanes)
     i_lanes = list(itertools.chain(*lanes))
     i_lanes = int(''.join(hex(x).replace('0x', '').rjust(16, '0') for x in i_lanes), 16)
-    #print(i_lanes)
     R = 1
     for round in range(24):
         # θ
         C = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in range(5)]
         D = [C[(x+4)%5] ^ ROL64(C[(x+1)%5], 1) for x in range(5)]
         lanes = [[lanes[x][y]^D[x] for y in range(5)] for x in range(5)]
-        #print(f'[theta] round: {round}, lanes:{lanes}')
 
         # ρ and π
         (x, y) = (1, 0)
@@ -54,7 +50,6 @@ def KeccakF1600onLanes(lanes):
         for t in range(24):
             (x, y) = (y, (2*x+3*y)%5)
             (current, lanes[x][y]) = (lanes[x][y], ROL64(current, (t+1)*(t+2)//2))
-            #print(t, ':', x, y, ((t+1)*(t+2)//2)%64)
 
         # χ
         for y in range(5):
@@ -68,9 +63,6 @@ def KeccakF1600onLanes(lanes):
             if (R & 2):
                 lanes[0][0] = lanes[0][0] ^ (1 << ((1<<j)-1))
 
-    o_lanes = list(itertools.chain(*lanes))
-    o_lanes = int(''.join(hex(x).replace('0x', '').rjust(16, '0') for x in o_lanes), 16)
-    #gen_vec('KeccakF1600onLanes', i_lanes, o_lanes)
     return lanes
 
 def load64(b):
@@ -96,7 +88,7 @@ def KeccakF1600(state):
         for y in range(5):
             state[8*(x+5*y):8*(x+5*y)+8] = store64(lanes[x][y])
 
-    # """for test"""
+    # # """for test"""
     # o_ostate = int.from_bytes(state)
     # print(f'[KeccakF1600] iState  : {hex(i_istate).replace("0x", "")}')
     # print(f'[KeccakF1600] oState  : {hex(o_ostate).replace("0x", "")}')
@@ -132,7 +124,10 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     rateInBytes = rate//8
     blockSize = 0
     inputOffset = 0
+
+    # ===================================
     # === Absorb all the input blocks ===
+    # ===================================
     while(inputOffset < len(inputBytes)):
         # HW-FETCH
         blockSize = min(len(inputBytes)-inputOffset, rateInBytes)
@@ -149,7 +144,9 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
             state = KeccakF1600(state)
             blockSize = 0
 
+    # ========================================================
     # === Do the padding and switch to the squeezing phase ===
+    # ========================================================
     print(f'[PADD_I]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
     state[blockSize] = state[blockSize] ^ delimitedSuffix
 
@@ -163,7 +160,10 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     print(f'[PADD  ]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
     state = KeccakF1600(state)
     print(f'[PADD_K]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
+
+    # =========================================
     # === Squeeze out all the output blocks ===
+    # =========================================
     while(outputByteLen > 0):
         blockSize = min(outputByteLen, rateInBytes)
         outputBytes = outputBytes + state[0:blockSize]
@@ -188,7 +188,7 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     vecDict['i_ibytes']     = i_ibytes
     vecDict['o_obytes']     = o_obytes
     vecDict['i_ibytes_len'] = len(inputBytes)
-    vecDict['o_obytes_len'] = len(outputBytes)
+    vecDict['i_obytes_len'] = len(outputBytes)
     vecDict['i_mode']       = i_mode
 
     genvec('keccak', vecDict, 1568*2) 

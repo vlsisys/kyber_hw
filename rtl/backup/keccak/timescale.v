@@ -1,1 +1,0 @@
-/home/woong/templates/verilog/timescale.v

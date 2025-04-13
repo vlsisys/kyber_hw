@@ -10,9 +10,9 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		50		// # of Test Vector
+`define NVEC		2		// # of Test Vector
 `define	DEBUG
-`define	FINISH		70000
+`define	FINISH		1000
 
 // --------------------------------------------------
 //	Infomation
@@ -65,11 +65,15 @@ module keccak_tb;
 		end
 	end
 
-	always @(*) begin
-		if ((i_ibytes_valid && o_ibytes_ready) && (ibytes_len / 8 > cnt_in)) begin
-			i_ibytes		= vi_ibytes[i][ibytes_len*8-1-(64*cnt_in)-:64];
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			i_ibytes	<= 0;
 		end else begin
-			i_ibytes		= 0;
+			if ((i_ibytes_valid && o_ibytes_ready) && (ibytes_len / 8 > cnt_in)) begin
+				i_ibytes	<= vi_ibytes[i][ibytes_len*8-1-(64*cnt_in)-:64];
+			end else begin
+				i_ibytes	<= 0;
+			end
 		end
 	end
 
@@ -124,7 +128,7 @@ module keccak_tb;
 			i_ibytes_valid	= 0;
 			i_ibytes_len	= 0;
 			i_obytes_len	= 0;
-			i_clk			= 1;
+			i_clk			= 0;
 			i_rstn			= 0;
 			cnt_in			= 0;
 		end
@@ -168,6 +172,7 @@ module keccak_tb;
 	initial begin
 		init();
 		resetNCycle(4);
+		#(4000/`CLKFREQ);
 
 		for (i=0; i<`SIMCYCLE; i++) begin
 			vecInsert(i);

@@ -19,9 +19,8 @@ module keccakf1600
 //	FSM
 // --------------------------------------------------
 	localparam	S_IDLE	= 2'b00;
-	localparam	S_FETCH	= 2'b01;
-	localparam	S_COMP	= 2'b10;
-	localparam	S_DONE	= 2'b11;
+	localparam	S_COMP	= 2'b01;
+	localparam	S_DONE	= 2'b10;
 
 	reg			[1:0]		c_state;
 	reg			[1:0]		n_state;
@@ -50,8 +49,7 @@ module keccakf1600
 	// Next State Logic
 	always @(*) begin
 		case(c_state)
-			S_IDLE	: n_state = (i_istate_valid)	? S_FETCH	: S_IDLE;
-			S_FETCH	: n_state = S_COMP;
+			S_IDLE	: n_state = (i_istate_valid)	? S_COMP	: S_IDLE;
 			S_COMP	: n_state = (round == 23)		? S_DONE	: S_COMP;
 			S_DONE	: n_state = S_IDLE;
 		endcase
@@ -59,7 +57,7 @@ module keccakf1600
 
 	// Output Logic
 	always @(*) begin
-		case(c_state)
+		case(n_state)
 			S_DONE	: o_ostate_valid	= 1;
 			default	: o_ostate_valid	= 0;
 		endcase
@@ -67,7 +65,7 @@ module keccakf1600
 
 	always @(*) begin
 		case(c_state)
-			S_FETCH	: o_istate_ready	= 1;
+			S_IDLE	: o_istate_ready	= 1;
 			default	: o_istate_ready	= 0;
 		endcase
 	end
@@ -93,7 +91,6 @@ module keccakf1600
 //	Wiring for Lane
 // --------------------------------------------------
 	wire		[1600-1:0]	ilanes;
-	reg			[1600-1:0]	olanes;
 	wire		[    63:0]	istate[0:4][0:4];
 	wire		[    63:0]	ostate[0:4][0:4];
 
@@ -123,9 +120,8 @@ module keccakf1600
 	generate
 	for (x=0; x<5; x=x+1) begin
 		for (y=0; y<5; y=y+1) begin
-			assign	lanes[x][y]	=	
-					(c_state == S_IDLE) 				? 0 :
-					(c_state == S_COMP && round == 0)	? ilanes[1600-1-((5*x+y)*64)-:64] : olanes[1600-1-((5*x+y)*64)-:64];
+			//assign	lanes[x][y]	= (c_state == S_COMP)	? ilanes[1600-1-((5*x+y)*64)-:64] : 0;
+			assign	lanes[x][y]	= ilanes[1600-1-((5*x+y)*64)-:64];
 		end
 	end
 	endgenerate
@@ -227,18 +223,18 @@ module keccakf1600
 // --------------------------------------------------
 //	Iota
 // --------------------------------------------------
-	wire		[63:0]		ilanesota[0:4][0:4];
-	wire		[63:0]		ilanesota_00[0:6];
+	wire		[63:0]		lanes_iota[0:4][0:4];
+	wire		[63:0]		lanes_iota_00[0:6];
 	wire		[7:0]		r[0:6];
 
 	generate
 	for (x=0; x<7; x=x+1) begin
 		if (x==0) begin
 			assign	r[x]				= ((r_init << 1) ^ ((r_init >> 7)*'h71)) % 256;
-			assign	ilanesota_00[x]	= (r[x] & 2) ? lanes_chi[0][0]    ^ (1 << ((1<<x)-1)): lanes_chi[0][0];
+			assign	lanes_iota_00[x]	= (r[x] & 2) ? lanes_chi[0][0] ^ (1 << ((1<<x)-1)): lanes_chi[0][0];
 		end else begin
 			assign	r[x]				= ((r[x-1] << 1) ^ ((r[x-1] >> 7)*'h71)) % 256;
-			assign	ilanesota_00[x]	= (r[x] & 2) ? ilanesota_00[x-1] ^ (1 << ((1<<x)-1)): ilanesota_00[x-1];
+			assign	lanes_iota_00[x]	= (r[x] & 2) ? lanes_iota_00[x-1] ^ (1 << ((1<<x)-1)): lanes_iota_00[x-1];
 		end
 	end
 	endgenerate
@@ -247,33 +243,22 @@ module keccakf1600
 	for (x=0; x<5; x=x+1) begin
 		for (y=0; y<5; y=y+1) begin
 			if (x == 0 && y == 0) begin
-				assign	ilanesota[x][y] = ilanesota_00[6];
+				assign	lanes_iota[x][y] = lanes_iota_00[6];
 			end else begin
-				assign	ilanesota[x][y] = lanes_chi[x][y];
+				assign	lanes_iota[x][y] = lanes_chi[x][y];
 			end
 		end
 	end
 	endgenerate
 
-	wire		[1600-1:0]	lanes_last;
+	wire		[1600-1:0]	olanes;
 	generate
 	for (x=0; x<5; x=x+1) begin
 		for (y=0; y<5; y=y+1) begin
-			assign	lanes_last[1600-1-((5*x+y)*64)-:64] = ilanesota[x][y];
+			assign	olanes[1600-1-((5*x+y)*64)-:64] = lanes_iota[x][y];
 		end
 	end
 	endgenerate
-
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			olanes	<= 0;
-		end else begin
-			case (c_state)
-				S_COMP	: olanes	<= lanes_last;
-				default	: olanes	<= olanes;
-			endcase
-		end
-	end
 
 	generate
 	for (x=0; x<5; x=x+1) begin
@@ -297,7 +282,6 @@ module keccakf1600
 	always @(*) begin
 		case (c_state)
 			S_IDLE		: ASCII_C_STATE = "IDLE	";
-			S_FETCH		: ASCII_C_STATE = "FETCH";
 			S_COMP		: ASCII_C_STATE = "COMP	";
 			S_DONE		: ASCII_C_STATE = "DONE	";
 		endcase
