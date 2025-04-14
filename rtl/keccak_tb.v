@@ -12,7 +12,7 @@
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
 `define NVEC		2		// # of Test Vector
 `define	DEBUG
-`define	FINISH		1000
+`define	FINISH		400
 
 // --------------------------------------------------
 //	Infomation
@@ -43,34 +43,16 @@ module keccak_tb;
 	reg					i_clk;
 	reg					i_rstn;
 	reg		[ 7-1:0]	cnt_in;
-	reg		[11-1:0]	ibytes_len         ;
 
-	always @(*) begin
-		ibytes_len	= |i_ibytes_len[2:0] ? {i_ibytes_len[11-1:3], 3'b0} + 8 : i_ibytes_len;
-	end
-
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			cnt_in			<= 0;
-		end else begin
-			if ((i_ibytes_valid && o_ibytes_ready) && (ibytes_len / 8- 1 > cnt_in)) begin
-				cnt_in			<= cnt_in + 1;
-			end else begin
-				if (o_obytes_done) begin
-					cnt_in			<= 0;
-				end else begin
-					cnt_in			<= cnt_in;
-				end
-			end
-		end
-	end
+	wire	[11-1:0]	ibytes_len;
+	assign	ibytes_len = |i_ibytes_len[2:0] ? {i_ibytes_len[10:3], 3'b0} + 8 : i_ibytes_len;
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
 			i_ibytes	<= 0;
 		end else begin
-			if ((i_ibytes_valid && o_ibytes_ready) && (ibytes_len / 8 > cnt_in)) begin
-				i_ibytes	<= vi_ibytes[i][ibytes_len*8-1-(64*cnt_in)-:64];
+			if ((i_ibytes_valid && o_ibytes_ready) && (u_keccak.cnt_ibytes != ibytes_len)) begin
+				i_ibytes	<= vi_ibytes[i][ibytes_len*8-1-(64*u_keccak.cnt_ibytes/8)-:64];
 			end else begin
 				i_ibytes	<= 0;
 			end
@@ -128,7 +110,7 @@ module keccak_tb;
 			i_ibytes_valid	= 0;
 			i_ibytes_len	= 0;
 			i_obytes_len	= 0;
-			i_clk			= 0;
+			i_clk			= 1;
 			i_rstn			= 0;
 			cnt_in			= 0;
 		end
@@ -194,9 +176,6 @@ module keccak_tb;
 	initial begin
 		if ($value$plusargs("vcd_file=%s", vcd_file)) begin
 			$dumpfile(vcd_file);
-			for (i=0; i<20; i++) begin
-				$dumpvars(0, u_keccak.block_buffer[i]);
-			end
 			$dumpvars;
 		end else begin
 			$dumpfile("keccak_tb.vcd");
