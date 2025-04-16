@@ -140,8 +140,8 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
 
         # HW-ABSB-KECCAK
         if (blockSize == rateInBytes):
-            print(f'[ABSB_K]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
             state = KeccakF1600(state)
+            print(f'[ABSB_K]: BlockSize={blockSize}, IOBytes={len(inputBytes)},{outputByteLen}, State={state.hex()}')
             blockSize = 0
 
     # ========================================================

@@ -51,7 +51,7 @@ module keccakf1600
 		case(c_state)
 			S_IDLE	: n_state = (i_istate_valid)	? S_COMP	: S_IDLE;
 			S_COMP	: n_state = (round == 23)		? S_DONE	: S_COMP;
-			S_DONE	: n_state = S_IDLE;
+			S_DONE	: n_state = (i_istate_valid)	? S_COMP	: S_IDLE;
 		endcase
 	end
 

@@ -10,9 +10,9 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		2		// # of Test Vector
+`define NVEC		400		// # of Test Vector
 `define	DEBUG
-`define	FINISH		400
+`define	FINISH		200000
 
 // --------------------------------------------------
 //	Infomation
@@ -31,30 +31,46 @@ module keccak_tb;
 // --------------------------------------------------
 //	DUT Signals & Instantiate
 // --------------------------------------------------
-	wire	[64-1:0]	o_obytes;
-	wire				o_obytes_done;
-	wire				o_obytes_valid;
-	wire				o_ibytes_ready;
-	reg		[   1:0]	i_mode;
-	reg		[64-1:0]	i_ibytes;
-	reg					i_ibytes_valid;
-	reg		[11-1:0]	i_ibytes_len;
-	reg		[10-1:0]	i_obytes_len;
-	reg					i_clk;
-	reg					i_rstn;
-	reg		[ 7-1:0]	cnt_in;
+	wire	[64-1:0]		o_obytes;
+	wire					o_obytes_done;
+	wire					o_obytes_valid;
+	wire					o_ibytes_ready;
+	reg		[   1:0]		i_mode;
+	reg		[64-1:0]		i_ibytes;
+	reg						i_ibytes_valid;
+	reg		[11-1:0]		i_ibytes_len;
+	reg		[10-1:0]		i_obytes_len;
+	reg						i_clk;
+	reg						i_rstn;
 
-	wire	[11-1:0]	ibytes_len;
+	reg		[1568*8-1:0]	IBYTES;
+	reg		[ 768*8-1:0]	OBYTES;
+	reg		[ 10:0]			cnt_in;
+	reg		[ 10:0]			cnt_ou;
+	wire	[11-1:0]		ibytes_len;
+
 	assign	ibytes_len = |i_ibytes_len[2:0] ? {i_ibytes_len[10:3], 3'b0} + 8 : i_ibytes_len;
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
 			i_ibytes	<= 0;
+			cnt_in		<= 0;
+			IBYTES		<= 0;
 		end else begin
-			if ((i_ibytes_valid && o_ibytes_ready) && (u_keccak.cnt_ibytes != ibytes_len)) begin
-				i_ibytes	<= vi_ibytes[i][ibytes_len*8-1-(64*u_keccak.cnt_ibytes/8)-:64];
+			if ((i_ibytes_valid && o_ibytes_ready)) begin
+				i_ibytes								<= vi_ibytes[i][ibytes_len*8-1-(64*cnt_in)-:64];
+				cnt_in									<= cnt_in + 1;
+				IBYTES[ibytes_len*8-1-(64*cnt_in)-:64]	<= vi_ibytes[i][ibytes_len*8-1-(64*cnt_in)-:64];
 			end else begin
-				i_ibytes	<= 0;
+				if (u_keccak.c_state == 6) begin
+					i_ibytes	<= 0;
+					cnt_in		<= 0;
+					IBYTES		<= IBYTES;
+				end else begin
+					i_ibytes	<= i_ibytes;
+					cnt_in		<= cnt_in;
+					IBYTES		<= IBYTES;
+				end
 			end
 		end
 	end
@@ -73,6 +89,26 @@ module keccak_tb;
 		.i_clk				(i_clk				),
 		.i_rstn				(i_rstn				)
 	);
+
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			OBYTES		<= 0;
+			cnt_ou		<= 0;
+		end else begin
+			if (o_obytes_valid) begin
+				OBYTES[i_obytes_len*8-1-64*(cnt_ou)-:64]	<= o_obytes;
+				cnt_ou		<= cnt_ou + 1;
+			end else begin
+				if (u_keccak.c_state == 0) begin
+					OBYTES		<= 0;
+					cnt_ou		<= 0;
+				end else begin
+					OBYTES		<= OBYTES;
+					cnt_ou		<= cnt_ou;
+				end
+			end
+		end
+	end
 
 // --------------------------------------------------
 //	Clock
@@ -141,8 +177,8 @@ module keccak_tb;
 		input	[$clog2(`NVEC)-1:0]	i;
 		begin
 			#(0.1*1000/`CLKFREQ);
-			if (	u_keccak.OBYTES != vo_obytes[i])  begin $display("[Idx: %3d] Mismatched o_obytes", i); end
-			if ((	u_keccak.OBYTES != vo_obytes[i])) begin err++; end
+			if (	OBYTES != vo_obytes[i])  begin $display("[Idx: %3d] Mismatched o_obytes", i); end
+			if ((	OBYTES != vo_obytes[i])) begin err++; end
 			#(0.9*1000/`CLKFREQ);
 		end
 	endtask
@@ -159,8 +195,8 @@ module keccak_tb;
 		for (i=0; i<`SIMCYCLE; i++) begin
 			vecInsert(i);
 			@ (negedge o_obytes_done) begin
-				#(1000/`CLKFREQ);
 				i_ibytes_valid	= 0;
+				#(100/`CLKFREQ);
 				vecVerify(i);
 			end
 			#(10*1000/`CLKFREQ);
