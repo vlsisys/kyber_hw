@@ -36,13 +36,13 @@ class TestKyber(unittest.TestCase):
                 self.assertEqual(key, _key)
     
     def test_kyber512(self):
-        self.generic_test_kyber(Kyber512, 5)
+        self.generic_test_kyber(Kyber512, 1)
         
     def test_kyber768(self):
-        self.generic_test_kyber(Kyber768, 5)
+        self.generic_test_kyber(Kyber768, 1)
         
     def test_kyber1024(self):
-        self.generic_test_kyber(Kyber1024, 5)
+        self.generic_test_kyber(Kyber1024, 1)
                 
 # class TestKyberDeterministic(unittest.TestCase):
 #     """

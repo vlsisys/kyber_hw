@@ -191,7 +191,7 @@ def Keccak(rate, capacity, inputBytes, delimitedSuffix, outputByteLen):
     vecDict['i_obytes_len'] = len(outputBytes)
     vecDict['i_mode']       = i_mode
 
-    genvec('keccak', vecDict, 1568*2) 
+    genvec('keccak', vecDict, 1568*2)
     
     return outputBytes
 
