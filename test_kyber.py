@@ -36,13 +36,13 @@ class TestKyber(unittest.TestCase):
                 self.assertEqual(key, _key)
     
     def test_kyber512(self):
-        self.generic_test_kyber(Kyber512, 1)
+        self.generic_test_kyber(Kyber512, 20)
         
     def test_kyber768(self):
-        self.generic_test_kyber(Kyber768, 1)
+        self.generic_test_kyber(Kyber768, 20)
         
     def test_kyber1024(self):
-        self.generic_test_kyber(Kyber1024, 1)
+        self.generic_test_kyber(Kyber1024, 20)
                 
 # class TestKyberDeterministic(unittest.TestCase):
 #     """
@@ -117,40 +117,40 @@ class TestKyber(unittest.TestCase):
 #                 seed = data["seed"]
 #                 self.assertEqual(seed, rng.random_bytes(48))
     
-# class TestKnownTestValues(unittest.TestCase): 
-#     def generic_test_kyber_known_answer(self, Kyber, filename):
-#         with open(filename) as f:
-#             kat_data = f.read()
-#             parsed_data = parse_kat_data(kat_data)
+class TestKnownTestValues(unittest.TestCase): 
+    def generic_test_kyber_known_answer(self, Kyber, filename):
+        with open(filename) as f:
+            kat_data = f.read()
+            parsed_data = parse_kat_data(kat_data)
             
-#             for data in parsed_data.values():
-#                 seed, pk, sk, ct, ss = data.values()
+            for data in parsed_data.values():
+                seed, pk, sk, ct, ss = data.values()
                 
-#                 # Seed DRBG with KAT seed
-#                 Kyber.set_drbg_seed(seed)
+                # Seed DRBG with KAT seed
+                Kyber.set_drbg_seed(seed)
                 
-#                 # Assert keygen matches
-#                 _pk, _sk = Kyber.keygen()
-#                 self.assertEqual(pk, _pk)
-#                 self.assertEqual(sk, _sk)
+                # Assert keygen matches
+                _pk, _sk = Kyber.keygen()
+                self.assertEqual(pk, _pk)
+                self.assertEqual(sk, _sk)
                 
-#                 # Assert encapsulation matches
-#                 _ct, _ss = Kyber.enc(_pk)
-#                 self.assertEqual(ct, _ct)
-#                 self.assertEqual(ss, _ss)
+                # Assert encapsulation matches
+                _ct, _ss = Kyber.enc(_pk)
+                self.assertEqual(ct, _ct)
+                self.assertEqual(ss, _ss)
                 
-#                 # Assert decapsulation matches
-#                 __ss = Kyber.dec(ct, sk)
-#                 self.assertEqual(ss, __ss)
+                # Assert decapsulation matches
+                __ss = Kyber.dec(ct, sk)
+                self.assertEqual(ss, __ss)
                 
-#     def test_kyber512_known_answer(self):
-#         return self.generic_test_kyber_known_answer(Kyber512, "assets/PQCkemKAT_1632.rsp")
+    def test_kyber512_known_answer(self):
+        return self.generic_test_kyber_known_answer(Kyber512, "assets/PQCkemKAT_1632.rsp")
         
-#     def test_kyber768_known_answer(self):
-#         return self.generic_test_kyber_known_answer(Kyber768, "assets/PQCkemKAT_2400.rsp")
+    def test_kyber768_known_answer(self):
+        return self.generic_test_kyber_known_answer(Kyber768, "assets/PQCkemKAT_2400.rsp")
         
-#     def test_kyber1024_known_answer(self):
-#         return self.generic_test_kyber_known_answer(Kyber1024, "assets/PQCkemKAT_3168.rsp")
+    def test_kyber1024_known_answer(self):
+        return self.generic_test_kyber_known_answer(Kyber1024, "assets/PQCkemKAT_3168.rsp")
 
 if __name__ == '__main__':
     unittest.main()

@@ -213,6 +213,9 @@ class Kyber:
             Secret Key (12*k*n) / 8      bytes
             Public Key (12*k*n) / 8 + 32 bytes
         """
+        print(f'-------------------------')
+        print(f'Kyber Key Generation')
+        print(f'-------------------------')
         # Generate random value, hash and split
         d = self.random_bytes(32)
         rho, sigma = self._g(d)
@@ -254,6 +257,9 @@ class Kyber:
         Output:
             c:  ciphertext
         """
+        print(f'-------------------------')
+        print(f'Kyber Encryption')
+        print(f'-------------------------')
         N = 0
         rho = pk[-32:]
         
@@ -261,6 +267,7 @@ class Kyber:
         tt = self.M.decode(pk, 1, self.k, l=12, is_ntt=True)        
         
         # Encode message as polynomial
+        print(f':::Decompressing u')
         m_poly = self.R.decode(m, l=1).decompress(1)
         
         # Generate the matrix A^T ∈ R^(kxk)
@@ -283,7 +290,9 @@ class Kyber:
         v = v + e2 + m_poly
         
         # Ciphertext to bytes
+        print(f':::Compressing u')
         c1 = u.compress(self.du).encode(l=self.du)
+        print(f':::Compressing v')
         c2 = v.compress(self.dv).encode(l=self.dv)
         
         return c1 + c2
@@ -299,15 +308,20 @@ class Kyber:
         Output:
             m:  message ∈ B^32
         """
+        print(f'-------------------------')
+        print(f'Kyber Decryption')
+        print(f'-------------------------')
         # Split ciphertext to vectors
         index = self.du * self.k * self.R.n // 8
         c2 = c[index:]
         
         # Recover the vector u and convert to NTT form
+        print(f':::Decompressing u')
         u = self.M.decode(c, self.k, 1, l=self.du).decompress(self.du)
         u.to_ntt()
         
         # Recover the polynomial v
+        print(f':::Decompressing v')
         v = self.R.decode(c2, l=self.dv).decompress(self.dv)
         
         # s_transpose (already in NTT form)
@@ -318,6 +332,7 @@ class Kyber:
         m = v - m
         
         # Return message as bytes
+        print(f':::Compressing v')
         return m.compress(1).encode(l=1)
     
     def keygen(self):

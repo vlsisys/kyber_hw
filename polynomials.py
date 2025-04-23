@@ -1,6 +1,7 @@
 import random, itertools, os
 from bitstring import Bits
 from utils import *
+from fixedpoint import FixedPoint
 
 def genvec(funcName, dict, bitwidth):
     for key, value in dict.items():
@@ -238,9 +239,25 @@ class PolynomialRing:
             Compress the polynomial by compressing each coefficent
             NOTE: This is lossy compression
             """
+            print(f'[  COMPRESS] COEFF_ORIG   : {self.coeffs}')
+
             compress_mod   = 2**d
             compress_float = compress_mod / self.parent.q
+            compress_float = float(FixedPoint(compress_float, signed=False, m=0, n=24))
             self.coeffs = [round_up(compress_float * c) % compress_mod for c in self.coeffs]
+
+            """
+            For Test
+            """
+            self.compress_d = d
+            self.compress_q = self.parent.q
+            self.compress_float = compress_float
+            self.compress_coefficients = self.coeffs
+
+            print(f'[  COMPRESS] D/Q          : {d}/{self.parent.q}')
+            print(f'[  COMPRESS] MOD/FLOAT    : {compress_mod}/{compress_float}')
+            print(f'[  COMPRESS] COEFF        : {self.coeffs}')
+            print(f'[  COMPRESS] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')    
 
             return self
             
@@ -252,8 +269,25 @@ class PolynomialRing:
             x' = decompress(compress(x)), which x' != x, but is 
             close in magnitude.
             """
+
+            print(f'[DECOMPRESS] COEFF_ORIG   : {self.coeffs}')
+
             decompress_float = self.parent.q / 2**d
+            decompress_float = float(FixedPoint(decompress_float, signed=False, m=12, n=12))
             self.coeffs = [round_up(decompress_float * c) for c in self.coeffs]
+
+            """
+            For Test
+            """
+            self.decompress_d = d
+            self.decompress_q = self.parent.q
+            self.decompress_float = decompress_float
+            self.decompress_coefficients = self.coeffs
+
+            print(f'[DECOMPRESS] D/Q          : {d}/{self.parent.q}')
+            print(f'[DECOMPRESS] FLOAT        : {decompress_float}')
+            print(f'[DECOMPRESS] COEFF        : {self.coeffs}')
+            print(f'[DECOMPRESS] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')
 
             return self
 
