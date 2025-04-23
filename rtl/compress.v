@@ -7,7 +7,7 @@
 
 module compress
 (	
-	output reg	[11:0]		o_coeff,
+	output 		[11:0]		o_coeff,
 	input		[11:0]		i_coeff,
 	input		[ 3:0]		i_d
 );
@@ -26,5 +26,6 @@ module compress
 
 	wire		[35:0]		mult;
 	assign		mult	= float * i_coeff;
+
 
 endmodule
