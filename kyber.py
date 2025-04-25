@@ -290,9 +290,7 @@ class Kyber:
         v = v + e2 + m_poly
         
         # Ciphertext to bytes
-        print(f':::Compressing u')
         c1 = u.compress(self.du).encode(l=self.du)
-        print(f':::Compressing v')
         c2 = v.compress(self.dv).encode(l=self.dv)
         
         return c1 + c2
@@ -316,12 +314,10 @@ class Kyber:
         c2 = c[index:]
         
         # Recover the vector u and convert to NTT form
-        print(f':::Decompressing u')
         u = self.M.decode(c, self.k, 1, l=self.du).decompress(self.du)
         u.to_ntt()
         
         # Recover the polynomial v
-        print(f':::Decompressing v')
         v = self.R.decode(c2, l=self.dv).decompress(self.dv)
         
         # s_transpose (already in NTT form)
@@ -332,7 +328,6 @@ class Kyber:
         m = v - m
         
         # Return message as bytes
-        print(f':::Compressing v')
         return m.compress(1).encode(l=1)
     
     def keygen(self):

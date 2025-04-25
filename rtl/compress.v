@@ -5,10 +5,11 @@
 //	* Description	: 
 // ==================================================
 
+(* use_dsp = "no" *)
 module compress
 (	
-	output 		[11:0]		o_coeff,
-	input		[11:0]		i_coeff,
+	output reg	[10:0]		o_coeff,
+	input		[12:0]		i_coeff,
 	input		[ 3:0]		i_d
 );
 
@@ -24,8 +25,20 @@ module compress
 		endcase
 	end
 
-	wire		[35:0]		mult;
-	assign		mult	= float * i_coeff;
+	wire		[36:0]		mult;
+	wire		[12:0]		mult_roundup;
+	assign		mult			= float * i_coeff;
+	assign		mult_roundup	= mult[36:24] +  mult[23];
 
+	always @(*) begin
+		case (i_d)
+			4'd 1	: o_coeff	= mult_roundup[ 0:0];
+			4'd 4	: o_coeff	= mult_roundup[ 3:0];
+			4'd 5	: o_coeff	= mult_roundup[ 4:0];
+			4'd10	: o_coeff	= mult_roundup[ 9:0];
+			4'd11	: o_coeff	= mult_roundup[10:0];
+			default	: o_coeff	= 0;
+		endcase
+	end
 
 endmodule

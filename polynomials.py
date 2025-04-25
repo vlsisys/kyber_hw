@@ -139,6 +139,8 @@ class PolynomialRing:
         else:
             if self.n*l != len(input_bytes)*8:
                 raise ValueError("Input bytes must be a multiple of (polynomial degree) / 8")
+            
+            
         coefficients = [0 for _ in range(self.n)]
         list_of_bits = bytes_to_bits(input_bytes)
         for i in range(self.n):
@@ -152,7 +154,7 @@ class PolynomialRing:
         self.decode_return = self(coefficients, is_ntt=is_ntt)
 
         # print(f'[DECODE] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
-        # print(f'[DECODE] L           : {l}')
+        print(f'[DECODE] L            : {l}')
         # print(f'[DECODE] COEFF        : {coefficients}')
         # print(f'[DECODE] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
         # print(f'[DECODE] List of Bit  : {list_of_bits}')
@@ -160,9 +162,11 @@ class PolynomialRing:
 
         # vecDict = dict()
         # vecDict['i_ibytes'] = int.from_bytes(input_bytes)
+        # vecDict['i_ibytes_len'] = len(input_bytes)
         # vecDict['i_l'] = int(l)
         # vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in coefficients), 2)
-        # #genvec('decode', vecDict, 768*2)
+        # genvec('decode', vecDict, 384*8//4)
+
         return self(coefficients, is_ntt=is_ntt)
             
     def __call__(self, coefficients, is_ntt=False):
@@ -239,13 +243,31 @@ class PolynomialRing:
             Compress the polynomial by compressing each coefficent
             NOTE: This is lossy compression
             """
-            print(f'[  COMPRESS] COEFF_ORIG   : {self.coeffs}')
+            # print(f'[  COMPRESS] COEFF_ORIG   : {self.coeffs}')
+            # print(f'[  COMPRESS] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')
+
+            i_coeffs = int(''.join(Bits(int=x, length=13).bin for x in self.coeffs), 2)
+            frac_bits = 24
 
             compress_mod   = 2**d
             compress_float = compress_mod / self.parent.q
-            compress_float = float(FixedPoint(compress_float, signed=False, m=0, n=24))
+            compress_float = float(FixedPoint(compress_float, signed=False, m=0, n=frac_bits))
+
+            hw_coeffs = list()
+
+            for coeff in self.coeffs:
+                mult = FixedPoint(compress_float * coeff, signed=True, m=13, n=frac_bits)
+                mult_round = FixedPoint(mult.bits[frac_bits+12:frac_bits] + mult.bits[frac_bits-1])
+                if d == 1:
+                    hw_coeffs.append(mult_round.bits[0])
+                else:
+                    hw_coeffs.append(mult_round.bits[d-1:0])
+                     
             self.coeffs = [round_up(compress_float * c) % compress_mod for c in self.coeffs]
 
+            if hw_coeffs != self.coeffs:
+                raise ValueError("TT")
+            
             """
             For Test
             """
@@ -254,10 +276,18 @@ class PolynomialRing:
             self.compress_float = compress_float
             self.compress_coefficients = self.coeffs
 
-            print(f'[  COMPRESS] D/Q          : {d}/{self.parent.q}')
-            print(f'[  COMPRESS] MOD/FLOAT    : {compress_mod}/{compress_float}')
-            print(f'[  COMPRESS] COEFF        : {self.coeffs}')
-            print(f'[  COMPRESS] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')    
+            # print(f'[  COMPRESS] D/Q          : {d}/{self.parent.q}')
+            # print(f'[  COMPRESS] MOD/FLOAT    : {compress_mod}/{compress_float}')
+            # print(f'[  COMPRESS] COEFF        : {self.coeffs}')
+            # print(f'[  COMPRESS] HW-COEFF     : {hw_coeffs}')
+
+            # print(f'[  COMPRESS] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')
+
+            # vecDict = dict()
+            # vecDict['i_coeffs'] = i_coeffs
+            # vecDict['i_d'] = d
+            # vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=13).bin for x in self.coeffs), 2)
+            # genvec('compress', vecDict, 13*256//4)
 
             return self
             
@@ -270,24 +300,45 @@ class PolynomialRing:
             close in magnitude.
             """
 
-            print(f'[DECOMPRESS] COEFF_ORIG   : {self.coeffs}')
+            # print(f'[DECOMPRESS] COEFF_ORIG   : {self.coeffs}')
+            # print(f'[DECOMPRESS] MIN/MAX ORI_C: {min(self.coeffs)},{max(self.coeffs)}')
+            i_coeffs = int(''.join(Bits(uint=x, length=12).bin for x in self.coeffs), 2)
+
 
             decompress_float = self.parent.q / 2**d
-            decompress_float = float(FixedPoint(decompress_float, signed=False, m=12, n=12))
+            decompress_float = float(FixedPoint(decompress_float, signed=False, m=11, n=3))
+
+
+            hw_coeffs = list()
+            for coeff in self.coeffs:
+                mult = FixedPoint(decompress_float * coeff, signed=False, m=22, n=3)
+                hw_coeffs.append(FixedPoint(mult.bits[14:3] + mult.bits[2]))
+                     
             self.coeffs = [round_up(decompress_float * c) for c in self.coeffs]
 
-            """
-            For Test
-            """
-            self.decompress_d = d
-            self.decompress_q = self.parent.q
-            self.decompress_float = decompress_float
-            self.decompress_coefficients = self.coeffs
+            
+            if hw_coeffs != self.coeffs:
+                raise ValueError("TT")
+            
 
-            print(f'[DECOMPRESS] D/Q          : {d}/{self.parent.q}')
-            print(f'[DECOMPRESS] FLOAT        : {decompress_float}')
-            print(f'[DECOMPRESS] COEFF        : {self.coeffs}')
-            print(f'[DECOMPRESS] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')
+            # """
+            # For Test
+            # """
+            # self.decompress_d = d
+            # self.decompress_q = self.parent.q
+            # self.decompress_float = decompress_float
+            # self.decompress_coefficients = self.coeffs
+
+            # print(f'[DECOMPRESS] D/Q          : {d}/{self.parent.q}')
+            # print(f'[DECOMPRESS] FLOAT        : {decompress_float}')
+            # print(f'[DECOMPRESS] COEFF        : {self.coeffs}')
+            # print(f'[DECOMPRESS] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')
+
+            # vecDict = dict()
+            # vecDict['i_coeffs'] = i_coeffs
+            # vecDict['i_d'] = d
+            # vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in self.coeffs), 2)
+            # genvec('decompress', vecDict, 12*256//4)
 
             return self
 
