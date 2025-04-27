@@ -153,19 +153,18 @@ class PolynomialRing:
         self.decode_list_of_bits = list_of_bits
         self.decode_return = self(coefficients, is_ntt=is_ntt)
 
-        # print(f'[DECODE] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
+        print(f'[DECODE] Input Bytes  : {len(input_bytes)},{input_bytes.hex()}')
         print(f'[DECODE] L            : {l}')
-        # print(f'[DECODE] COEFF        : {coefficients}')
-        # print(f'[DECODE] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
-        # print(f'[DECODE] List of Bit  : {list_of_bits}')
-        # print(f'[DECODE] Return       : {self(coefficients, is_ntt=is_ntt)}')
+        print(f'[DECODE] COEFF        : {coefficients}')
+        print(f'[DECODE] MIN/MAX COEFF: {min(coefficients)},{max(coefficients)}')
+        print(f'[DECODE] List of Bit  : {list_of_bits}')
+        print(f'[DECODE] Return       : {self(coefficients, is_ntt=is_ntt)}')
 
-        # vecDict = dict()
-        # vecDict['i_ibytes'] = int.from_bytes(input_bytes)
-        # vecDict['i_ibytes_len'] = len(input_bytes)
-        # vecDict['i_l'] = int(l)
-        # vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in coefficients), 2)
-        # genvec('decode', vecDict, 384*8//4)
+        vecDict = dict()
+        vecDict['i_ibytes'] = int.from_bytes(input_bytes)
+        vecDict['i_l'] = int(l)
+        vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in coefficients), 2)
+        genvec('decode', vecDict, 384*8//4)
 
         return self(coefficients, is_ntt=is_ntt)
             
