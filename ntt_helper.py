@@ -12,7 +12,7 @@ TODOs:
 
 NTT_PARAMETERS = {
     "kyber" : {
-        "q" : 3329,
+        "q"             : 3329,
         "mont_r"        : 2285,  # 2^16 % q
         "mont_r2"       : 1353,  # 2^32 % q
         "mont_r_inv"    : 169,   # (1 / 2^16) % q
@@ -150,17 +150,24 @@ class NTTHelper():
         k, l = 1, 128
         coeffs = poly.coeffs
         while l >= 2:
+            # print(f'l          : {l}')
             start = 0
             while start < 256:
                 zeta = self.zetas[k]
+                # print(f'start      : {start}')
+                # print(f'k          : {k}')
+                # print(f'zeta       : {zeta}')
+                # print(f'coeffs     : {coeffs}')
                 k = k + 1
                 for j in range(start, start + l):
                     t = self.ntt_mul(zeta, coeffs[j+l])
+                    # print(f'index      : {j:3},{j+l:3}')
                     coeffs[j+l] = coeffs[j] - t
                     coeffs[j]   = coeffs[j] + t
                 start = l + (j + 1)
             l = l >> 1
-        
+            # print(f'-----------------------')
+
         poly.is_ntt = True
 
         return poly
