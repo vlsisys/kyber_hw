@@ -161,4 +161,18 @@ module decode
 		end
 	end
 
+	`ifdef	DEBUG
+	reg			[127:0]			ASCII_C_STATE;
+	always @(*) begin
+		case (c_state)
+			S_IDLE	: ASCII_C_STATE = "S_IDLE  ";
+			S_COMP_0: ASCII_C_STATE = "S_COMP_0";
+			S_COMP_1: ASCII_C_STATE = "S_COMP_1";
+			S_DONE	: ASCII_C_STATE = "S_DONE  ";
+		endcase
+	end
+	wire	[11:0]	o_coeffs_debug[0:255];
+
+	`endif
+
 endmodule
