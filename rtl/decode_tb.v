@@ -123,7 +123,7 @@ module decode_tb;
 		resetNCycle(4);
 		#(4000/`CLKFREQ);
 		for (i=0; i<`SIMCYCLE; i++) begin
-			for (j=0; j<`SIMCYCLE; j++) begin
+			for (j=0; j<(384*8/64); j++) begin
 				vecInsert(i,j);
 				#(1000/`CLKFREQ);
 				//vecVerify(i,j);

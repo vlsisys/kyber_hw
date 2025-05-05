@@ -144,6 +144,8 @@ module decode
 		end
 	end
 
+	wire		[63:0]		ibytes_concat;	
+	assign		ibytes_concat	= {ibytes_bwr_reg[offset-1:0], i_ibytes[63:offset]};	
 // --------------------------------------------------
 //	Output Coeff
 // --------------------------------------------------
@@ -154,7 +156,14 @@ module decode
 			case (c_state)
 				S_COMP_0	,
 				S_COMP_1	: begin
-					o_coeffs	<= ibytes_bwr;
+					case (i_l)
+						12		: o_coeffs	<= {ibytes_bwr[52], ibytes_bwr[53], ibytes_bwr[54], ibytes_bwr[55], ibytes_bwr[56], ibytes_bwr[57], ibytes_bwr[58], ibytes_bwr[59], ibytes_bwr[60], ibytes_bwr[61], ibytes_bwr[62], ibytes_bwr[63], 
+												ibytes_bwr[40], ibytes_bwr[41], ibytes_bwr[42], ibytes_bwr[43], ibytes_bwr[44], ibytes_bwr[45], ibytes_bwr[46], ibytes_bwr[47], ibytes_bwr[48], ibytes_bwr[49], ibytes_bwr[50], ibytes_bwr[51],
+												ibytes_bwr[28], ibytes_bwr[29], ibytes_bwr[30], ibytes_bwr[31], ibytes_bwr[32], ibytes_bwr[33], ibytes_bwr[34], ibytes_bwr[35], ibytes_bwr[36], ibytes_bwr[37], ibytes_bwr[38], ibytes_bwr[39],
+												ibytes_bwr[16], ibytes_bwr[17], ibytes_bwr[18], ibytes_bwr[19], ibytes_bwr[20], ibytes_bwr[21], ibytes_bwr[22], ibytes_bwr[23], ibytes_bwr[24], ibytes_bwr[25], ibytes_bwr[26], ibytes_bwr[27],
+												ibytes_bwr[ 4], ibytes_bwr[ 5], ibytes_bwr[ 6], ibytes_bwr[ 7], ibytes_bwr[ 8], ibytes_bwr[ 9], ibytes_bwr[10], ibytes_bwr[11], ibytes_bwr[12], ibytes_bwr[13], ibytes_bwr[14], ibytes_bwr[15]};
+						default	: o_coeffs	<=	ibytes_bwr;
+					endcase
 				end
 				default		: o_coeffs	<= o_coeffs;
 			endcase
