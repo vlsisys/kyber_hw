@@ -11,6 +11,7 @@
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
 `define NVEC		10		// # of Test Vector
+`define	DEBUG
 
 // --------------------------------------------------
 //	Includes
@@ -126,7 +127,9 @@ module decode_tb;
 			for (j=0; j<(384*8/64); j++) begin
 				vecInsert(i,j);
 				#(1000/`CLKFREQ);
-				//vecVerify(i,j);
+			end
+			@ (posedge o_done) begin
+				vecVerify(i);
 			end
 		end
 		#(1000/`CLKFREQ);
