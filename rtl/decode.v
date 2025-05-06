@@ -95,12 +95,16 @@ module decode
 		endcase
 	end
 
-	always @(*) begin
-		case(c_state)
-			S_COMP_0	, 
-			S_COMP_1	: o_coeffs_valid	= 1;
-			default		: o_coeffs_valid	= 0;
-		endcase
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn) begin
+			o_coeffs_valid	<= 0;
+		end else begin
+			case(c_state)
+				S_COMP_0	, 
+				S_COMP_1	: o_coeffs_valid	<= 1;
+				default		: o_coeffs_valid	<= 0;
+			endcase
+		end
 	end
 	
 	always @(posedge i_clk or negedge i_rstn) begin
@@ -296,6 +300,21 @@ module decode
 			S_COMP_1: ASCII_C_STATE = "S_COMP_1";
 			S_DONE	: ASCII_C_STATE = "S_DONE  ";
 		endcase
+	end
+
+	reg			[12*256-1:0]	o_coeffs_debug;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn || c_state == S_IDLE) begin
+			o_coeffs_debug	<= 0;
+		end else begin
+			case (i_l)
+				11		: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*55-:55] <= o_coeffs[63-:55];
+				5		,
+				10		,
+				12		: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*60-:60] <= o_coeffs[63-:60];
+				default	: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*64-:64] <= o_coeffs;
+			endcase
+		end
 	end
 
 	`endif

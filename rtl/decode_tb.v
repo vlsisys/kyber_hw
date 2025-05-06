@@ -129,7 +129,10 @@ module decode_tb;
 				#(1000/`CLKFREQ);
 			end
 			@ (posedge o_done) begin
+				#(1000/`CLKFREQ);
+				i_ibytes_valid	<= 0;
 				vecVerify(i);
+				#(4000/`CLKFREQ);
 			end
 		end
 		#(1000/`CLKFREQ);
