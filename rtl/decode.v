@@ -88,9 +88,9 @@ module decode
 	end
 
 	always @(*) begin
-		case(c_state)
+		case(n_state)
 			S_IDLE		,
-			S_COMP_1	: o_ibytes_ready	= 1;
+			S_COMP_1	: o_ibytes_ready	= n_state == S_COMP_0 ? 0 : 1;
 			default		: o_ibytes_ready	= 0;
 		endcase
 	end
@@ -144,7 +144,11 @@ module decode
 		if (!i_rstn) begin
 			ibytes_bwr_reg <= 0;	
 		end else begin
-			ibytes_bwr_reg <= ibytes_bwr;	
+			if (n_state == S_COMP_0) begin
+				ibytes_bwr_reg <= ibytes_bwr_reg;
+			end else begin
+				ibytes_bwr_reg <= ibytes_bwr;
+			end
 		end
 	end
 
@@ -283,7 +287,7 @@ module decode
 												ibytes_concat[16], ibytes_concat[17], ibytes_concat[18], ibytes_concat[19], ibytes_concat[20], ibytes_concat[21], ibytes_concat[22], ibytes_concat[23], ibytes_concat[24], ibytes_concat[25], ibytes_concat[26], ibytes_concat[27],
 												ibytes_concat[ 4], ibytes_concat[ 5], ibytes_concat[ 6], ibytes_concat[ 7], ibytes_concat[ 8], ibytes_concat[ 9], ibytes_concat[10], ibytes_concat[11], ibytes_concat[12], ibytes_concat[13], ibytes_concat[14], ibytes_concat[15],
 												4'b0};
-						default	: o_coeffs	<=	ibytes_concat;
+						default	: o_coeffs	<=	0;
 					endcase
 				end
 				default		: o_coeffs	<= o_coeffs;
@@ -307,13 +311,17 @@ module decode
 		if (!i_rstn || c_state == S_IDLE) begin
 			o_coeffs_debug	<= 0;
 		end else begin
-			case (i_l)
-				11		: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*55-:55] <= o_coeffs[63-:55];
-				5		,
-				10		,
-				12		: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*60-:60] <= o_coeffs[63-:60];
-				default	: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*64-:64] <= o_coeffs;
-			endcase
+			if (o_coeffs_valid) begin
+				case (i_l)
+					11		: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*55-:55] <= o_coeffs[63-:55];
+					5		,
+					10		,
+					12		: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*60-:60] <= o_coeffs[63-:60];
+					default	: o_coeffs_debug[12*256-1-(cnt_ibytes-1)*64-:64] <= o_coeffs;
+				endcase
+			end else begin
+				o_coeffs_debug	<= 0;
+			end
 		end
 	end
 
