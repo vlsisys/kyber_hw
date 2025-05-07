@@ -10,7 +10,7 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		10		// # of Test Vector
+`define NVEC		50		// # of Test Vector
 `define	DEBUG
 
 // --------------------------------------------------
@@ -75,7 +75,7 @@ module decode_tb;
 			i_ibytes			= 0;
 			i_ibytes_valid		= 0;
 			i_l					= 0;
-			i_clk				= 0;
+			i_clk				= 1;
 			i_rstn				= 0;
 		end
 	endtask
@@ -91,27 +91,29 @@ module decode_tb;
 	endtask
 
 	task vecInsert;
-		input	[$clog2(`NVEC)-1:0]	i;
-		input	[$clog2(   48)-1:0]	j;
 		begin
 			$sformat(taskState,	"VEC[%3d]", i);
-			i_l				= vi_l[i];
-			i_ibytes_valid	= 1;
+			i_l				<= vi_l[i];
+			i_ibytes_valid	<= 1;
 			@ (posedge i_clk) begin
 				if (i_ibytes_valid && o_ibytes_ready) begin
-					i_ibytes	<= vi_ibytes[i][i_l*32*8-1-j*64-:64];
+					if (j < i_l*32*8/64) begin
+						i_ibytes	<= vi_ibytes[i][i_l*32*8-1-j*64-:64];
+						j <= j+1;
+					end else begin
+						i_ibytes	<= 0;
+					end
 				end
 			end
 		end
 	endtask
 
 	task vecVerify;
-		input	[$clog2(`NVEC)-1:0]	i;
 		begin
-			#(0.1*1000/`CLKFREQ);
-			if (o_coeffs != vo_coeffs[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
-			if (o_coeffs != vo_coeffs[i]) begin err++; end
-			#(0.9*1000/`CLKFREQ);
+			#(0.5*1000/`CLKFREQ);
+			if (u_decode.o_coeffs_debug != vo_coeffs[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
+			if (u_decode.o_coeffs_debug != vo_coeffs[i]) begin err++; end
+			#(0.5*1000/`CLKFREQ);
 		end
 	endtask
 
@@ -124,16 +126,16 @@ module decode_tb;
 		resetNCycle(4);
 		#(4000/`CLKFREQ);
 		for (i=0; i<`SIMCYCLE; i++) begin
-			for (j=0; j<(384*8/64); j++) begin
-				vecInsert(i,j);
+			j = 0;
+			//for (j=0; j<(384*8/64); j++) begin
+			while (!o_done) begin
+				vecInsert;
 				#(1000/`CLKFREQ);
 			end
-			@ (posedge o_done) begin
-				#(1000/`CLKFREQ);
-				i_ibytes_valid	<= 0;
-				vecVerify(i);
-				#(4000/`CLKFREQ);
-			end
+//			@ (posedge o_done) begin
+			i_ibytes_valid	<= 0;
+			vecVerify;
+			#(4000/`CLKFREQ);
 		end
 		#(1000/`CLKFREQ);
 		$finish;
