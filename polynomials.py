@@ -245,8 +245,8 @@ class PolynomialRing:
             print(f'[ENCODE] L            : {l}')
             print(f'[ENCODE] COEFF        : {self.coeffs}')
             print(f'[ENCODE] MIN/MAX COEFF: {min(self.coeffs)},{max(self.coeffs)}')
-            print(f'[ENCODE] BIS_STRING   : {bit_string}')
-            print(f'[ENCODE] Return       : {bitstring_to_bytes(bit_string).hex()}')
+            print(f'[ENCODE] BIS_STRING   : {len(bit_string)},{bit_string}')
+            print(f'[ENCODE] Return       : {len(bitstring_to_bytes(bit_string))},{bitstring_to_bytes(bit_string).hex()}')
             print(f'-----------------------------------------------------------')
 
             # vecDict = dict()
