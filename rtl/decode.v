@@ -82,7 +82,7 @@ module decode
 // --------------------------------------------------
 //	Flow Control
 // --------------------------------------------------
-	reg			[5:0]		cnt_ibytes;
+//	reg			[5:0]		cnt_ibytes;
 	reg			[5:0]		cnt_coeffs;
 	reg			[5:0]		cnt_coeffs_max;
 	reg			[6:0]		offset_base;
@@ -120,18 +120,18 @@ module decode
 		end
 	end
 
-	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			cnt_ibytes	<= 0;
-		end else begin
-			case (c_state)
-				S_IDLE		, 
-				S_DONE		: cnt_ibytes	<= 0;
-				S_COMP_1	: cnt_ibytes	<= cnt_ibytes + 1;
-				default		: cnt_ibytes	<= cnt_ibytes;
-			endcase
-		end
-	end
+//	always @(posedge i_clk or negedge i_rstn) begin
+//		if (!i_rstn) begin
+//			cnt_ibytes	<= 0;
+//		end else begin
+//			case (c_state)
+//				S_IDLE		, 
+//				S_DONE		: cnt_ibytes	<= 0;
+//				S_COMP_1	: cnt_ibytes	<= cnt_ibytes + 1;
+//				default		: cnt_ibytes	<= cnt_ibytes;
+//			endcase
+//		end
+//	end
 
 	always @(posedge i_clk or negedge i_rstn) begin
 		if (!i_rstn) begin
@@ -151,16 +151,10 @@ module decode
 	genvar					i;
 	generate
 		for (i=0; i<8; i=i+1) begin
-			assign	ibytes_bwr[64-1-8*i-:8] = {
-						i_ibytes[64-1-8*i-7],
-						i_ibytes[64-1-8*i-6],
-						i_ibytes[64-1-8*i-5],
-						i_ibytes[64-1-8*i-4],
-						i_ibytes[64-1-8*i-3],
-						i_ibytes[64-1-8*i-2],
-						i_ibytes[64-1-8*i-1],
-						i_ibytes[64-1-8*i-0]
-			};
+			assign	ibytes_bwr[64-1-8*i-:8] = { i_ibytes[64-1-8*i-7], i_ibytes[64-1-8*i-6],
+												i_ibytes[64-1-8*i-5], i_ibytes[64-1-8*i-4],
+												i_ibytes[64-1-8*i-3], i_ibytes[64-1-8*i-2],
+												i_ibytes[64-1-8*i-1], i_ibytes[64-1-8*i-0]};
 		end
 	endgenerate
 
@@ -244,7 +238,7 @@ module decode
 			7'd61	: ibytes_concat	= {ibytes_bwr_reg[60:0], ibytes_bwr[63:61]};	
 			7'd62	: ibytes_concat	= {ibytes_bwr_reg[61:0], ibytes_bwr[63:62]};	
 			7'd63	: ibytes_concat	= {ibytes_bwr_reg[62:0], ibytes_bwr[63:63]};	
-			7'd64	: ibytes_concat	= {ibytes_bwr_reg[63:0]                 };	
+			7'd64	: ibytes_concat	= {ibytes_bwr_reg[63:0]                   };	
 			default	: ibytes_concat	= ibytes_bwr;
 		endcase
 	end
