@@ -249,11 +249,11 @@ class PolynomialRing:
             print(f'[ENCODE] Return       : {len(bitstring_to_bytes(bit_string))},{bitstring_to_bytes(bit_string).hex()}')
             print(f'-----------------------------------------------------------')
 
-            # vecDict = dict()
-            # vecDict['i_ibytes'] = int.from_bytes(input_bytes)
-            # vecDict['i_l'] = int(l)
-            # vecDict['o_coeffs'] = int(''.join(Bits(uint=x, length=l).bin for x in coefficients), 2)
-            # genvec('decode', vecDict, 384*8//4)
+            vecDict = dict()
+            vecDict['i_coeffs'] = int(''.join(Bits(uint=x, length=l).bin for x in self.coeffs), 2)
+            vecDict['i_l'] = int(l)
+            vecDict['o_obytes'] = int.from_bytes(bitstring_to_bytes(bit_string))
+            genvec('encode', vecDict, 384*8//4)
             
             # Split 8-bit & reverse
             return bitstring_to_bytes(bit_string)
