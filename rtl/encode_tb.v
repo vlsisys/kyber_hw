@@ -11,7 +11,7 @@
 // --------------------------------------------------
 `define	CLKFREQ		100		// Clock Freq. (Unit: MHz)
 `define	SIMCYCLE	`NVEC	// Sim. Cycles
-`define NVEC		10		// # of Test Vector
+`define NVEC		88		// # of Test Vector
 `define	DEBUG
 
 // --------------------------------------------------
@@ -25,7 +25,6 @@ module encode_tb;
 // --------------------------------------------------
 	wire	[63:0]		o_obytes;
 	wire				o_obytes_valid;
-	wire				o_coeffs_ready;
 	wire				o_done;
 	reg		[23:0]		i_coeffs;
 	reg					i_coeffs_valid;
@@ -37,7 +36,6 @@ module encode_tb;
 	u_encode(
 		.o_obytes			(o_obytes			),
 		.o_obytes_valid		(o_obytes_valid		),
-		.o_coeffs_ready		(o_coeffs_ready		),
 		.o_done				(o_done				),
 		.i_coeffs			(i_coeffs			),
 		.i_coeffs_valid		(i_coeffs_valid		),
@@ -91,30 +89,33 @@ module encode_tb;
 		end
 	endtask
 
-
 	task vecInsert;
 		begin
 			$sformat(taskState,	"VEC[%2d/%2d]", i, j);
 			i_l				= vi_l[i];
 			i_coeffs_valid	= 1;
 			@ (posedge i_clk) begin
-				case(i_l)
-					 1: i_coeffs = vi_coeffs[i][ 1*32*8-1- 1*2*j-: 1*2];
-					 4: i_coeffs = vi_coeffs[i][ 4*32*8-1- 4*2*j-: 4*2];
-					 5: i_coeffs = vi_coeffs[i][ 5*32*8-1- 5*2*j-: 5*2];
-					10: i_coeffs = vi_coeffs[i][10*32*8-1-10*2*j-:10*2];
-					11: i_coeffs = vi_coeffs[i][11*32*8-1-11*2*j-:11*2];
-					12: i_coeffs = vi_coeffs[i][12*32*8-1-12*2*j-:12*2];
-				endcase
+				if (i_coeffs_valid) begin
+					i_coeffs = vi_coeffs[i][12*256-1-12*2*j-:12*2];
+				end
+				//case(i_l)
+				//	 1: i_coeffs = vi_coeffs[i][ 1*256-1- 1*2*j-: 1*2];
+				//	 4: i_coeffs = vi_coeffs[i][ 4*256-1- 4*2*j-: 4*2];
+				//	 5: i_coeffs = vi_coeffs[i][ 5*256-1- 5*2*j-: 5*2];
+				//	10: i_coeffs = vi_coeffs[i][10*256-1-10*2*j-:10*2];
+				//	11: i_coeffs = vi_coeffs[i][11*256-1-11*2*j-:11*2];
+				//	12: i_coeffs = vi_coeffs[i][12*256-1-12*2*j-:12*2];
+				//endcase
 			end
 		end
 	endtask
 
 	task vecVerify;
 		begin
+			i_coeffs_valid	= 0;
 			#(0.5*1000/`CLKFREQ);
-			//if (u_encode.o_obytes_debug != vo_obytes[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
-			//if (u_encode.o_obytes_debug != vo_obytes[i]) begin err++; end
+			if (u_encode.o_obytes_debug != vo_obytes[i]) begin $display("[Idx: %3d] Mismatched o_coeffs", i); end
+			if (u_encode.o_obytes_debug != vo_obytes[i]) begin err++; end
 			#(0.5*1000/`CLKFREQ);
 		end
 	endtask
@@ -131,7 +132,9 @@ module encode_tb;
 				vecInsert;
 				#(1000/`CLKFREQ);
 			end
-			vecVerify;
+			@ (posedge o_done) begin
+				vecVerify;
+			end
 		end
 		#(1000/`CLKFREQ);
 		$finish;

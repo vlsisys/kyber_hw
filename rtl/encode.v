@@ -10,7 +10,6 @@ module encode
 (	
 	output reg	[63:0]		o_obytes,
 	output reg				o_obytes_valid,
-	output reg				o_coeffs_ready,
 	output reg				o_done,
 	input		[23:0]		i_coeffs,
 	input					i_coeffs_valid,
@@ -123,13 +122,13 @@ module encode
 			case (c_state)
 				S_IDLE	: cnt_obytes <= 0;
 				S_COMP	: cnt_obytes <= o_obytes_valid ? cnt_obytes + 1 : cnt_obytes;
-				default	: cnt_coeffs <= cnt_obytes;
+				default	: cnt_obytes <= cnt_obytes;
 			endcase
 		end
 	end
 
 	reg		[23:0]		coeff_rev;
-	reg		[23:0]		coeff_concat;
+	reg		[71:0]		coeff_reg;
 
 	always @(*) begin
 		case (i_l)
@@ -144,32 +143,112 @@ module encode
 	end
 
 	always @(posedge i_clk or negedge i_rstn) begin
-		if (!i_rstn) begin
-			coeff_concat	<= 0;
+		if (!i_rstn || c_state == S_DONE) begin
+			coeff_reg	<= 0;
 		end else begin
-			case(cnt_coeffs)
-				7'd 0 : coeff_concat	<= coeff_concat;
+			case(i_l)
+				4'd1	:  coeff_reg[63:0] <= {coeff_reg[63- 2:0], coeff_rev[ 1:0]};
+				4'd4	:  coeff_reg[63:0] <= {coeff_reg[63- 8:0], coeff_rev[ 7:0]};
+				4'd5	:  coeff_reg[69:0] <= {coeff_reg[69-10:0], coeff_rev[ 9:0]};
+				4'd10	:  coeff_reg[59:0] <= {coeff_reg[59-20:0], coeff_rev[19:0]};
+				4'd11	:  coeff_reg[65:0] <= {coeff_reg[65-22:0], coeff_rev[21:0]};
+				4'd12	:  coeff_reg[71:0] <= {coeff_reg[71-24:0], coeff_rev[23:0]};
+				default	:  coeff_reg       <= 0;
 			endcase
 		end
 	end
-
-				
 
 	reg		[63:0]	obytes;
+	always @(*) begin
+		case (i_l)
+			4'd1	: begin
+				case (cnt_coeffs)
+					7'd62	: obytes = {coeff_reg[ 0+ 2*31-1:0], coeff_rev[ 1-:64-62]};
+					default	: obytes = 0;
+				endcase
+			end
+			4'd4	: begin
+				case (cnt_coeffs)
+					7'd56	: obytes = {coeff_reg[ 0+ 8*7-1:0], coeff_rev[ 7-:64-56]};
+					default	: obytes = 0;
+				endcase
+			end
+			4'd5	: begin
+				case (cnt_coeffs)
+					7'd60	: obytes = {coeff_reg[ 0+10*6-1:0], coeff_rev[ 9-:64-60]};
+					7'd56	: obytes = {coeff_reg[ 6+10*5-1:0], coeff_rev[ 9-:64-56]};
+					7'd62	: obytes = {coeff_reg[ 2+10*6-1:0], coeff_rev[ 9-:64-62]};
+					7'd58	: obytes = {coeff_reg[ 8+10*5-1:0], coeff_rev[ 9-:64-58]};
+					7'd54	: obytes = {coeff_reg[ 4+10*5-1:0], coeff_rev[ 9-:64-54]};
+					default	: obytes = 0;
+				endcase
+			end
+			4'd10	: begin
+				case (cnt_coeffs)
+					7'd60	: obytes = {coeff_reg[ 0+20*3-1:0], coeff_rev[19-:64-60]};
+					7'd56	: obytes = {coeff_reg[16+20*2-1:0], coeff_rev[19-:64-56]};
+					7'd52	: obytes = {coeff_reg[12+20*2-1:0], coeff_rev[19-:64-52]};
+					7'd48	: obytes = {coeff_reg[ 8+20*2-1:0], coeff_rev[19-:64-48]};
+					7'd44	: obytes = {coeff_reg[ 4+20*2-1:0], coeff_rev[19-:64-44]};
+					default	: obytes = 0;
+				endcase
+			end
+			4'd11	: begin
+				case (cnt_coeffs)
+					7'd44	: obytes = {coeff_reg[ 0+22*2-1:0], coeff_rev[21-:64-44]};
+					7'd46	: obytes = {coeff_reg[ 2+22*2-1:0], coeff_rev[21-:64-46]};
+					7'd48	: obytes = {coeff_reg[ 4+22*2-1:0], coeff_rev[21-:64-48]};
+					7'd50	: obytes = {coeff_reg[ 6+22*2-1:0], coeff_rev[21-:64-50]};
+					7'd52	: obytes = {coeff_reg[ 8+22*2-1:0], coeff_rev[21-:64-52]};
+					7'd54	: obytes = {coeff_reg[10+22*2-1:0], coeff_rev[21-:64-54]};
+					7'd56	: obytes = {coeff_reg[12+22*2-1:0], coeff_rev[21-:64-56]};
+					7'd58	: obytes = {coeff_reg[14+22*2-1:0], coeff_rev[21-:64-58]};
+					7'd60	: obytes = {coeff_reg[16+22*2-1:0], coeff_rev[21-:64-60]};
+					7'd62	: obytes = {coeff_reg[18+22*2-1:0], coeff_rev[21-:64-62]};
+					7'd42	: obytes = {coeff_reg[20+22*1-1:0], coeff_rev[21-:64-42]};
+					default	: obytes = 0;
+				endcase
+			end
+			4'd12	: begin
+				case (cnt_coeffs)
+					7'd48	: obytes = {coeff_reg[ 0+24*2-1:0], coeff_rev[23-:64-48]};
+					7'd56	: obytes = {coeff_reg[ 8+24*2-1:0], coeff_rev[23-:64-56]};
+					7'd40	: obytes = {coeff_reg[16+24*1-1:0], coeff_rev[23-:64-40]};
+					default	: obytes = 0;
+				endcase
+			end
+			default	: obytes = 0;
+		endcase
+	end
+
 	always @(posedge i_clk or negedge i_rstn) begin
-		if(!i_rstn) begin
-			obytes	<= 0;
+		if (!i_rstn) begin
+			o_obytes <= 0;
 		end else begin
-			case (i_l)
-				4'd1	: obytes <= {obytes[63-2:0], coeff_rev[1:0]};
-				4'd4	: obytes <= {obytes[63-8:0], coeff_rev[7:0]};
-				4'd5	: obytes <= o_obytes_valid ? {obytes[63-10:0], coeff_rev[ 9:0]} : {obytes[63-10:0], coeff_rev[ 9:0]};
-				4'd10	: obytes <= o_obytes_valid ? {obytes[63-20:0], coeff_rev[19:0]} : {obytes[63-20:0], coeff_rev[19:0]};
-				4'd11	: obytes <= o_obytes_valid ? {obytes[63-22:0], coeff_rev[21:0]} : {obytes[63-22:0], coeff_rev[21:0]};
-				4'd12	: obytes <= o_obytes_valid ? {obytes[63-24:0], coeff_rev[23:0]} : {obytes[63-24:0], coeff_rev[23:0]};
-				default	: obytes <= 0;
-			endcase
+			o_obytes <= {	obytes[56], obytes[57], obytes[58], obytes[59], obytes[60], obytes[61], obytes[62], obytes[63],
+							obytes[48], obytes[49], obytes[50], obytes[51], obytes[52], obytes[53], obytes[54], obytes[55],
+							obytes[40], obytes[41], obytes[42], obytes[43], obytes[44], obytes[45], obytes[46], obytes[47],
+							obytes[32], obytes[33], obytes[34], obytes[35], obytes[36], obytes[37], obytes[38], obytes[39],
+							obytes[24], obytes[25], obytes[26], obytes[27], obytes[28], obytes[29], obytes[30], obytes[31],
+							obytes[16], obytes[17], obytes[18], obytes[19], obytes[20], obytes[21], obytes[22], obytes[23],
+							obytes[ 8], obytes[ 9], obytes[10], obytes[11], obytes[12], obytes[13], obytes[14], obytes[15],
+							obytes[ 0], obytes[ 1], obytes[ 2], obytes[ 3], obytes[ 4], obytes[ 5], obytes[ 6], obytes[ 7]};
 		end
 	end
+
+	`ifdef DEBUG
+	reg		[12*256-1:0]	o_obytes_debug;
+	always @(posedge i_clk or negedge i_rstn) begin
+		if (!i_rstn || c_state == S_IDLE) begin
+			o_obytes_debug	<= 0;
+		end else begin
+			if (o_obytes_valid) begin
+				o_obytes_debug	<= {o_obytes_debug[12*256-1-64:0], o_obytes};
+			end else begin
+				o_obytes_debug	<= o_obytes_debug;
+			end
+		end
+	end
+	`endif
 
 endmodule

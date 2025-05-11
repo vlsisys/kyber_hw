@@ -250,7 +250,7 @@ class PolynomialRing:
             print(f'-----------------------------------------------------------')
 
             vecDict = dict()
-            vecDict['i_coeffs'] = int(''.join(Bits(uint=x, length=l).bin for x in self.coeffs), 2)
+            vecDict['i_coeffs'] = int(''.join(Bits(uint=x, length=12).bin for x in self.coeffs), 2)
             vecDict['i_l'] = int(l)
             vecDict['o_obytes'] = int.from_bytes(bitstring_to_bytes(bit_string))
             genvec('encode', vecDict, 384*8//4)
