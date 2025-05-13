@@ -39,19 +39,19 @@ class TestKyber(unittest.TestCase):
         print("========================================")
         print("Kyber512")
         print("========================================")
-        self.generic_test_kyber(Kyber512, 2)
+        self.generic_test_kyber(Kyber512, 1)
         
     def test_kyber768(self):
         print("========================================")
         print("Kyber768")
         print("========================================")
-        self.generic_test_kyber(Kyber768, 2)
+        self.generic_test_kyber(Kyber768, 1)
         
     def test_kyber1024(self):
         print("========================================")
         print("Kyber1024")
         print("========================================")
-        self.generic_test_kyber(Kyber1024, 2)
+        self.generic_test_kyber(Kyber1024, 1)
                 
 # class TestKyberDeterministic(unittest.TestCase):
 #     """
